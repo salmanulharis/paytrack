@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../core/widgets/gradient_button.dart';
@@ -40,7 +41,13 @@ class PaymentConfirmationSheet extends ConsumerWidget {
     }
 
     ref.read(pendingPaymentProvider.notifier).state = null;
-    if (context.mounted) Navigator.pop(context);
+    if (!context.mounted) return;
+
+    Navigator.pop(context);
+
+    if (status == ExpenseStatus.success) {
+      context.go('/');
+    }
   }
 
   @override
