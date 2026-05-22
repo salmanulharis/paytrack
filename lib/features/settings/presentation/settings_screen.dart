@@ -175,6 +175,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => context.push('/pin-setup'),
           ),
+          ListTile(
+            title: const Text('Unlock grace period'),
+            subtitle: Text(
+              '${ref.read(authSessionServiceProvider).gracePeriodMinutes} min — '
+              'stay unlocked when paying or scanning',
+            ),
+            trailing: const Icon(Icons.timer_outlined),
+            onTap: () => _showGracePeriodPicker(context, ref),
+          ),
           const _SectionHeader('Notifications'),
           SwitchListTile(
             title: const Text('Enable notifications'),
@@ -257,6 +266,39 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ],
       ),
     );
+  }
+
+  static Future<void> _showGracePeriodPicker(BuildContext context, WidgetRef ref) async {
+    final session = ref.read(authSessionServiceProvider);
+    final current = session.gracePeriodMinutes;
+    final selected = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Unlock grace period'),
+        children: [1, 3, 5, 10].map((m) {
+          return SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, m),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                '$m minute${m > 1 ? 's' : ''}',
+                style: TextStyle(
+                  fontWeight: m == current ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+    if (selected != null) {
+      await session.setGracePeriodMinutes(selected);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Grace period set to $selected minutes')),
+        );
+      }
+    }
   }
 
   static Future<void> _editLimit(

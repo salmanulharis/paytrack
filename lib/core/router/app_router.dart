@@ -17,6 +17,7 @@ import '../../features/settings/presentation/backup_screen.dart';
 import '../../features/settings/presentation/manage_tags_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../providers/app_providers.dart';
+
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authServiceProvider);
 
@@ -126,29 +127,38 @@ class _AppShellState extends ConsumerState<_AppShell> with WidgetsBindingObserve
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _checkLock();
+    _checkLockOnStart();
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkPendingPayment());
   }
 
-  Future<void> _checkLock() async {
-    final auth = ref.read(authServiceProvider);
-    if (await auth.shouldLock()) {
-      setState(() {
-        _locked = true;
-        _checkedLock = true;
-      });
-    } else {
-      setState(() => _checkedLock = true);
-    }
+  Future<void> _checkLockOnStart() async {
+    final session = ref.read(authSessionServiceProvider);
+    final required = await session.shouldRequireLock(isColdStart: true);
+    setState(() {
+      _locked = required;
+      _checkedLock = true;
+    });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final session = ref.read(authSessionServiceProvider);
+    final flow = ref.read(paymentFlowServiceProvider);
+
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      if (flow.activePendingId != null) {
+        session.suspendLockForExternalFlow();
+      }
+    }
+
     if (state == AppLifecycleState.resumed) {
+      session.suspendLockForExternalFlow();
       _checkPendingPayment();
-      final auth = ref.read(authServiceProvider);
-      auth.shouldLock().then((should) {
-        if (should && mounted) setState(() => _locked = true);
+      session.shouldRequireLock().then((required) {
+        if (mounted) {
+          setState(() => _locked = required);
+        }
       });
     }
   }
@@ -178,7 +188,10 @@ class _AppShellState extends ConsumerState<_AppShell> with WidgetsBindingObserve
 
     if (_locked) {
       return LockScreen(
-        onUnlocked: () => setState(() => _locked = false),
+        onUnlocked: () {
+          ref.read(authSessionServiceProvider).recordUnlock();
+          setState(() => _locked = false);
+        },
       );
     }
 

@@ -26,7 +26,10 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     final auth = ref.read(authServiceProvider);
     if (auth.isBiometricEnabled && await auth.canUseBiometrics()) {
       final ok = await auth.authenticateWithBiometrics();
-      if (ok && mounted) widget.onUnlocked?.call();
+      if (ok && mounted) {
+        ref.read(authSessionServiceProvider).recordUnlock();
+        widget.onUnlocked?.call();
+      }
     }
   }
 
@@ -34,6 +37,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     if (_pin.length < 4) return;
     final ok = await ref.read(authServiceProvider).verifyPin(_pin);
     if (ok) {
+      ref.read(authSessionServiceProvider).recordUnlock();
       widget.onUnlocked?.call();
     } else {
       setState(() {

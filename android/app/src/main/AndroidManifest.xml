@@ -57,6 +57,5 @@
         <package android:name="com.dreamplug.androidapp"/>
         <package android:name="money.jupiter"/>
         <package android:name="in.org.npci.upiapp"/>
-        <package android:name="com.whatsapp"/>
     </queries>
 </manifest>

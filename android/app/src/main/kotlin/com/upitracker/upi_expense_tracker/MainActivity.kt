@@ -1,5 +1,6 @@
 package com.upitracker.upi_expense_tracker
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -10,7 +11,8 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private val channelName = "com.upitracker/upi"
 
-    private val upiPackages = listOf(
+    /** Verified UPI wallet packages only — no messengers/social apps. */
+    private val upiWalletPackages = listOf(
         "com.google.android.apps.nbu.paisa.user",
         "com.phonepe.app",
         "net.one97.paytm",
@@ -18,9 +20,13 @@ class MainActivity : FlutterActivity() {
         "money.jupiter",
         "in.org.npci.upiapp",
         "in.amazon.mShop.android.shopping",
-        "com.whatsapp",
         "com.mobikwik_new",
         "com.freecharge.android",
+        "com.csam.icici.bank.imobile",
+        "com.sbi.lotusintouch",
+        "com.myairtelapp",
+        "com.axis.mobile",
+        "com.snapwork.hdfc",
     )
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -30,25 +36,21 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "getInstalledUpiApps" -> {
-                        val installed = mutableListOf<String>()
-                        val pm = packageManager
-                        for (pkg in upiPackages) {
-                            try {
-                                pm.getPackageInfo(pkg, 0)
-                                installed.add(pkg)
-                            } catch (_: PackageManager.NameNotFoundException) {
-                            }
+                        val uri = call.argument<String>("uri")
+                            ?: "upi://pay?pa=merchant@upi&pn=Merchant&am=1.00&cu=INR"
+                        val installed = upiWalletPackages.filter { pkg ->
+                            isPackageInstalled(pkg) && canPackageHandleUpi(pkg, uri)
                         }
                         result.success(installed)
                     }
                     "launchUpiIntent" -> {
                         val uri = call.argument<String>("uri")
                         val pkg = call.argument<String>("package")
-                        if (uri == null) {
+                        if (uri == null || pkg.isNullOrBlank()) {
                             result.success(false)
                             return@setMethodCallHandler
                         }
-                        result.success(launchUpi(uri, pkg))
+                        result.success(launchUpiExplicit(uri, pkg))
                     }
                     "launchUpiChooser" -> {
                         val uri = call.argument<String>("uri")
@@ -56,32 +58,94 @@ class MainActivity : FlutterActivity() {
                             result.success(false)
                             return@setMethodCallHandler
                         }
-                        result.success(launchChooser(uri))
+                        result.success(launchUpiChooser(uri))
                     }
                     else -> result.notImplemented()
                 }
             }
     }
 
-    private fun launchUpi(uri: String, packageName: String?): Boolean {
+    private fun isPackageInstalled(packageName: String): Boolean {
         return try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
-            if (!packageName.isNullOrEmpty()) {
-                intent.setPackage(packageName)
-            }
-            startActivity(intent)
+            packageManager.getPackageInfo(packageName, PackageManager.GET_ACTIVITIES)
             true
-        } catch (e: Exception) {
-            launchChooser(uri)
+        } catch (_: PackageManager.NameNotFoundException) {
+            false
         }
     }
 
-    private fun launchChooser(uri: String): Boolean {
+    /**
+     * Ensures the package itself resolves the UPI URI — prevents WhatsApp/other apps
+     * from appearing as "installed UPI" when they only register generic deep links.
+     */
+    private fun canPackageHandleUpi(packageName: String, uri: String): Boolean {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri)).apply {
+            setPackage(packageName)
+            addCategory(Intent.CATEGORY_DEFAULT)
+            addCategory(Intent.CATEGORY_BROWSABLE)
+        }
+        val handlers = packageManager.queryIntentActivities(
+            intent,
+            PackageManager.MATCH_DEFAULT_ONLY,
+        )
+        return handlers.any { resolve ->
+            resolve.activityInfo.packageName == packageName
+        }
+    }
+
+    /**
+     * Launch UPI only in the requested package. Never falls back to chooser or another app.
+     */
+    private fun launchUpiExplicit(uri: String, packageName: String): Boolean {
+        if (!isPackageInstalled(packageName)) return false
+        if (!canPackageHandleUpi(packageName, uri)) return false
+
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri)).apply {
+            setPackage(packageName)
+            addCategory(Intent.CATEGORY_DEFAULT)
+            addCategory(Intent.CATEGORY_BROWSABLE)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+
         return try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
-            startActivity(Intent.createChooser(intent, "Pay with"))
+            startActivity(intent)
             true
-        } catch (e: Exception) {
+        } catch (_: ActivityNotFoundException) {
+            false
+        } catch (_: SecurityException) {
+            false
+        }
+    }
+
+    /** User explicitly chose "Other" — show chooser limited to verified wallet apps. */
+    private fun launchUpiChooser(uri: String): Boolean {
+        val targetIntent = Intent(Intent.ACTION_VIEW, Uri.parse(uri)).apply {
+            addCategory(Intent.CATEGORY_DEFAULT)
+            addCategory(Intent.CATEGORY_BROWSABLE)
+        }
+
+        val handlers = packageManager.queryIntentActivities(
+            targetIntent,
+            PackageManager.MATCH_DEFAULT_ONLY,
+        )
+
+        val allowed = handlers.filter { resolve ->
+            upiWalletPackages.contains(resolve.activityInfo.packageName)
+        }
+
+        if (allowed.isEmpty()) return false
+
+        val first = allowed.first()
+        val launch = Intent(Intent.ACTION_VIEW, Uri.parse(uri)).apply {
+            setClassName(first.activityInfo.packageName, first.activityInfo.name)
+            addCategory(Intent.CATEGORY_DEFAULT)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+
+        return try {
+            startActivity(launch)
+            true
+        } catch (_: Exception) {
             false
         }
     }

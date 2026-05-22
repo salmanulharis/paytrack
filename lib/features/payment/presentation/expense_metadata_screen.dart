@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/services/upi_payment_service.dart';
 import '../../../core/widgets/floating_form_scaffold.dart';
 import '../../../core/widgets/merchant_amount_banner.dart';
 import '../../../core/widgets/tag_chip.dart';
@@ -150,9 +151,16 @@ class _ExpenseMetadataScreenState extends ConsumerState<ExpenseMetadataScreen> {
     app ??= await UpiAppPickerSheet.show(context);
     if (app == null || !mounted) return;
 
+    if (app.packageName.isEmpty && app.id != 'other') {
+      _showSnack('${app.name} is not installed on this device');
+      return;
+    }
+
     setState(() => _isPaying = true);
 
     try {
+      ref.read(authSessionServiceProvider).suspendLockForExternalFlow();
+
       final noteText = userPrefs.noteFieldMode == NoteFieldMode.disabled
           ? 'PayTrack'
           : (_notesController.text.trim().isEmpty
@@ -167,7 +175,13 @@ class _ExpenseMetadataScreenState extends ConsumerState<ExpenseMetadataScreen> {
               amount: amount,
               transactionNote: noteText,
             );
-        await ref.read(upiPaymentServiceProvider).launchGenericChooser(uri);
+        ref.read(authSessionServiceProvider).suspendLockForExternalFlow();
+        final launched =
+            await ref.read(upiPaymentServiceProvider).launchGenericChooser(uri);
+        if (!launched) {
+          _showSnack('No UPI app available to handle payment');
+          return;
+        }
       } else {
         await flow.startPaymentFlow(
           upiId: widget.upiId,
@@ -179,7 +193,7 @@ class _ExpenseMetadataScreenState extends ConsumerState<ExpenseMetadataScreen> {
               : _notesController.text.trim(),
           paymentAppId: app.id,
           paymentAppName: app.name,
-          packageName: app.packageName.isNotEmpty ? app.packageName : null,
+          packageName: app.packageName,
         );
       }
 
@@ -191,6 +205,8 @@ class _ExpenseMetadataScreenState extends ConsumerState<ExpenseMetadataScreen> {
           ),
         );
       }
+    } on UpiLaunchException catch (e) {
+      _showSnack(e.message);
     } catch (e) {
       _showSnack('Could not open payment app: $e');
     } finally {

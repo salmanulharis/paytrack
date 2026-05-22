@@ -22,6 +22,14 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   bool _handled = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(authSessionServiceProvider).suspendLockForExternalFlow();
+    });
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();

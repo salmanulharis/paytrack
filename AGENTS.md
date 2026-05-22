@@ -1,42 +1,50 @@
 # AGENTS.md — PayTrack
 
-Flutter UPI expense tracker. Log expenses **before** UPI payment; confirm status on app resume.
+UPI expense tracker: tag expenses **before** UPI payment; confirm on app resume.
 
 ## Stack
 
-Flutter 3.41+ · Dart 3.11+ · Riverpod · GoRouter · Hive · Material 3
+Flutter 3.11+ · Riverpod · GoRouter · Hive · Material 3 · `mobile_scanner` · `fl_chart`
 
-## Entry & boot
+## Entry
 
-1. `lib/main.dart` — `HiveStorage.init()`, `SampleDataSeeder`, `ProviderScope` + `sharedPreferencesProvider` override
-2. `lib/app.dart` — `PayTrackApp` → `routerProvider`, `themeModeProvider`
+`lib/main.dart` → Hive init, sample seed, `ProviderScope` → `lib/app.dart`
 
 ## Where to edit
 
-| Task | Primary file(s) |
-|------|-------------------|
+| Task | File(s) |
+|------|---------|
 | Routes | `lib/core/router/app_router.dart` |
-| DI / global state | `lib/core/providers/app_providers.dart` |
-| Local DB | `lib/data/datasources/local/hive_storage.dart` |
-| UPI parse / URI build | `lib/core/services/upi_parser_service.dart` |
-| UPI launch (Android) | `lib/core/services/upi_payment_service.dart`, `android/.../MainActivity.kt` |
-| Payment lifecycle | `lib/core/services/payment_flow_service.dart` |
+| Providers / settings state | `lib/core/providers/app_providers.dart` |
+| User prefs (note, limits) | `UserPreferences`, `userPreferencesProvider`, `settings_screen.dart` |
+| Hive DB | `lib/data/datasources/local/hive_storage.dart` |
+| UPI parse / pay | `upi_parser_service.dart`, `payment_flow_service.dart`, `MainActivity.kt` |
+| Limits | `spending_limit_service.dart`, `limit_progress_card.dart` |
+| Backup | `backup_service.dart`, `backup_screen.dart` |
+| Dashboard actions | `paytrack_bottom_nav.dart` (`PayTrackBottomChrome`) |
+| Payment / manual forms | `floating_form_scaffold.dart`, `expense_metadata_screen.dart` |
 | Theme | `lib/core/theme/app_theme.dart` |
-| Default tags | `lib/core/constants/default_tags.dart` |
 
-## Feature folders
+## UI chrome (dashboard)
 
-`lib/features/{onboarding,auth,dashboard,scanner,payment,expenses,analytics,settings}/presentation/`
+```
+[ Add expense | Scan QR ]   ← PayTrackDualActionBar (horizontal, equal width)
+[ Home        | Analytics ] ← NavigationBar
+```
 
-## Critical flow
+Do **not** use vertical FAB stacks or center-docked FABs on the dashboard.
 
-QR scan → `/metadata` (amount + tags required) → UPI app → resume → `PaymentConfirmationSheet` → `Expense` in Hive.
+## Critical flows
 
-UPI apps do **not** return payment callbacks; status is user-confirmed.
+1. **Scan** → `/metadata` → validate amount, tags, note (per `NoteFieldMode`) → UPI app → confirm sheet
+2. **Merchant QR amount** — auto-fill; lock if `allowEditMerchantAmount == false`
+3. **Limits** — check before pay; show `LimitProgressCard` on home when enabled
+
+UPI apps do not return payment results; status is user-confirmed.
 
 ## Full index
 
-See `CODEBASE_INDEX.md` for routes, providers, models, prefs keys, and native files.
+See `CODEBASE_INDEX.md`.
 
 ## Commands
 
@@ -47,8 +55,6 @@ flutter analyze
 flutter build apk --release
 ```
 
-## Do not
+## Git
 
-- Add freezed/build_runner without updating docs
-- Commit `build/`, `.dart_tool/`
-- Use `IconButton(selected:)` — not a valid parameter; use visual selection state on container
+Commit `pubspec.lock`. Do not commit `build/`, `.dart_tool/`, `android/local.properties`, secrets.

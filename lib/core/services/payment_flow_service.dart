@@ -7,6 +7,7 @@ import '../../data/repositories/expense_repository.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/entities/expense_status.dart';
 import '../../domain/entities/pending_payment.dart';
+import 'auth_session_service.dart';
 import 'upi_parser_service.dart';
 import 'upi_payment_service.dart';
 
@@ -17,17 +18,20 @@ class PaymentFlowService {
     required UpiPaymentService upiService,
     required UpiParserService parserService,
     required SharedPreferences prefs,
+    required AuthSessionService authSession,
   })  : _storage = storage,
         _expenseRepo = expenseRepo,
         _upiService = upiService,
         _parser = parserService,
-        _prefs = prefs;
+        _prefs = prefs,
+        _authSession = authSession;
 
   final HiveStorage _storage;
   final ExpenseRepository _expenseRepo;
   final UpiPaymentService _upiService;
   final UpiParserService _parser;
   final SharedPreferences _prefs;
+  final AuthSessionService _authSession;
   final _uuid = const Uuid();
 
   String? _activePendingId;
@@ -42,7 +46,7 @@ class PaymentFlowService {
     String? notes,
     required String paymentAppId,
     required String paymentAppName,
-    String? packageName,
+    required String packageName,
   }) async {
     final id = _uuid.v4();
     final note = notes ?? 'PayTrack expense';
@@ -71,22 +75,13 @@ class PaymentFlowService {
 
     await _recordAppUsage(paymentAppId);
 
-    final alwaysDefault = _prefs.getBool(AppConstants.prefAlwaysUseDefaultApp) ?? false;
-    final defaultApp = _prefs.getString(AppConstants.prefDefaultUpiApp);
+    _authSession.suspendLockForExternalFlow();
 
-    if (alwaysDefault && defaultApp != null) {
-      final apps = await _upiService.getInstalledUpiApps();
-      final app = apps.where((a) => a.id == defaultApp).firstOrNull;
-      await _upiService.launchPayment(
-        upiUri: uri,
-        packageName: app?.packageName ?? packageName,
-      );
-    } else {
-      await _upiService.launchPayment(
-        upiUri: uri,
-        packageName: packageName,
-      );
-    }
+    await _upiService.launchPayment(
+      upiUri: uri,
+      packageName: packageName,
+      appName: paymentAppName,
+    );
 
     return pending;
   }
@@ -155,12 +150,4 @@ class PaymentFlowService {
   }
 
   String? getLastUsedAppId() => _prefs.getString(AppConstants.prefLastUpiApp);
-}
-
-extension _FirstOrNull<T> on Iterable<T> {
-  T? get firstOrNull {
-    final iterator = this.iterator;
-    if (iterator.moveNext()) return iterator.current;
-    return null;
-  }
 }

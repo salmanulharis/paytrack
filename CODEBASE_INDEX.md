@@ -1,25 +1,47 @@
 # PayTrack Codebase Index
 
-> **App:** PayTrack (`upi_expense_tracker`) — Flutter UPI expense tracker  
+> **App:** PayTrack (`upi_expense_tracker`) — UPI-first expense tracker  
 > **Package:** `com.upitracker.upi_expense_tracker`  
-> **Entry:** `lib/main.dart` → `lib/app.dart` (`PayTrackApp`)
+> **Entry:** `lib/main.dart` → `lib/app.dart`  
+> **Dart files:** 53 under `lib/`
 
 ---
 
-## Quick navigation
+## Quick lookup
 
 | I want to… | Go to |
 |------------|--------|
-| Change startup / init | `lib/main.dart` |
-| Add a route | `lib/core/router/app_router.dart` |
-| Add Riverpod provider | `lib/core/providers/app_providers.dart` |
-| Change theme / colors | `lib/core/theme/app_theme.dart` |
-| UPI QR parsing | `lib/core/services/upi_parser_service.dart` |
-| Launch GPay / PhonePe | `lib/core/services/upi_payment_service.dart` + `android/.../MainActivity.kt` |
-| Payment pending → confirm flow | `lib/core/services/payment_flow_service.dart`, `payment_confirmation_sheet.dart` |
-| Persist expenses | `lib/data/datasources/local/hive_storage.dart` |
+| App bootstrap | `lib/main.dart`, `lib/app.dart` |
+| Routes | `lib/core/router/app_router.dart` |
+| Riverpod DI | `lib/core/providers/app_providers.dart` |
+| Theme / colors | `lib/core/theme/app_theme.dart` |
+| User settings (note mode, limits) | `userPreferencesProvider`, `settings_screen.dart` |
+| UPI QR parse / URI build | `lib/core/services/upi_parser_service.dart` |
+| Launch GPay / PhonePe | `upi_payment_service.dart`, `android/.../MainActivity.kt` |
+| Payment pending → confirm | `payment_flow_service.dart`, `payment_confirmation_sheet.dart` |
+| Hive persistence | `lib/data/datasources/local/hive_storage.dart` |
+| Spending limits + compensation | `lib/core/services/spending_limit_service.dart` |
+| Backup import/export | `lib/core/services/backup_service.dart`, `backup_screen.dart` |
+| Bottom UI (Add + Scan + nav) | `lib/core/widgets/paytrack_bottom_nav.dart` |
+| Floating payment forms | `lib/core/widgets/floating_form_scaffold.dart` |
 | Default categories | `lib/core/constants/default_tags.dart` |
-| Android permissions / UPI queries | `android/app/src/main/AndroidManifest.xml` |
+| Android UPI intents | `AndroidManifest.xml`, `MainActivity.kt` |
+
+---
+
+## Architecture
+
+```
+Presentation (features/*/presentation/)
+        ↓ watch/read
+Riverpod (core/providers/)
+        ↓
+Services + Repositories
+        ↓
+HiveStorage (JSON in Hive boxes) + SharedPreferences + SecureStorage
+```
+
+**Pattern:** Feature-first clean architecture, offline-first, no code generation.
 
 ---
 
@@ -27,234 +49,186 @@
 
 ```
 lib/
-├── main.dart                          # Hive init, SharedPreferences, sample seed, runApp
-├── app.dart                           # MaterialApp.router, themeMode, GoRouter
+├── main.dart
+├── app.dart
 │
 ├── core/
-│   ├── constants/
-│   │   ├── app_constants.dart         # Hive box names, pref keys, timeouts
-│   │   └── default_tags.dart          # 15 seeded ExpenseTag definitions
-│   ├── theme/
-│   │   └── app_theme.dart             # AppColors, light()/dark(), Plus Jakarta Sans
-│   ├── router/
-│   │   └── app_router.dart            # GoRouter routes, _AppShell (lock + pending payment)
-│   ├── providers/
-│   │   └── app_providers.dart         # All Riverpod providers + ExpensesNotifier, TagsNotifier
+│   ├── constants/          app_constants.dart, default_tags.dart
+│   ├── theme/              app_theme.dart (AppColors, light/dark)
+│   ├── router/             app_router.dart (+ _AppShell lock/resume)
+│   ├── providers/          app_providers.dart (all Riverpod)
 │   ├── services/
-│   │   ├── upi_parser_service.dart    # parse(), buildUpiUri() — upi://pay?pa=&am=&pn=
-│   │   ├── upi_payment_service.dart     # MethodChannel com.upitracker/upi
-│   │   ├── payment_flow_service.dart  # startPaymentFlow, completePayment, pending on resume
-│   │   ├── auth_service.dart          # PIN hash, biometric, onboarding flag
-│   │   ├── analytics_service.dart     # totals, charts, insights, heatmap
-│   │   └── notification_service.dart # flutter_local_notifications schedules
-│   ├── utils/
-│   │   ├── currency_formatter.dart    # ₹ formatting (INR)
-│   │   └── tag_icon_helper.dart       # iconName → IconData, color palette
+│   │   ├── upi_parser_service.dart
+│   │   ├── upi_payment_service.dart      # MethodChannel com.upitracker/upi
+│   │   ├── payment_flow_service.dart
+│   │   ├── auth_service.dart
+│   │   ├── analytics_service.dart
+│   │   ├── notification_service.dart
+│   │   ├── spending_limit_service.dart
+│   │   └── backup_service.dart
+│   ├── utils/              currency_formatter, tag_icon_helper
 │   └── widgets/
-│       ├── glass_card.dart
-│       ├── gradient_button.dart
-│       ├── expense_list_tile.dart
-│       └── tag_chip.dart
+│       ├── paytrack_bottom_nav.dart      # PayTrackBottomChrome, DualActionBar
+│       ├── floating_form_scaffold.dart
+│       ├── limit_progress_card.dart
+│       ├── merchant_amount_banner.dart
+│       ├── glass_card, gradient_button, tag_chip, expense_list_tile
 │
-├── domain/entities/                   # Pure models (Equatable, toJson/fromJson)
-│   ├── expense.dart
-│   ├── expense_tag.dart
-│   ├── expense_status.dart            # pending | success | failed | cancelled
-│   ├── upi_payment_data.dart
-│   ├── pending_payment.dart
-│   └── upi_app_info.dart              # knownApps: gpay, phonepe, paytm, cred, jupiter, bhim…
+├── domain/entities/
+│   ├── expense.dart, expense_tag.dart, expense_status.dart
+│   ├── upi_payment_data.dart, pending_payment.dart, upi_app_info.dart
+│   ├── user_preferences.dart, note_field_mode.dart, limit_status.dart
 │
 ├── data/
-│   ├── datasources/local/
-│   │   └── hive_storage.dart          # Singleton; JSON in Hive boxes
-│   ├── repositories/
-│   │   ├── expense_repository.dart    # CRUD + search(filters)
-│   │   └── tag_repository.dart
-│   └── sample/
-│       └── sample_data_seeder.dart    # First-launch demo expenses
+│   ├── datasources/local/hive_storage.dart
+│   ├── repositories/       expense_repository, tag_repository
+│   └── sample/sample_data_seeder.dart
 │
-└── features/                          # UI only (presentation/)
-    ├── onboarding/presentation/onboarding_screen.dart
-    ├── auth/presentation/
-    │   ├── pin_setup_screen.dart
-    │   └── lock_screen.dart
-    ├── dashboard/presentation/dashboard_screen.dart
-    ├── scanner/presentation/scanner_screen.dart      # mobile_scanner
-    ├── payment/presentation/
-    │   ├── expense_metadata_screen.dart              # amount + tags before pay
-    │   ├── upi_app_picker_sheet.dart
-    │   └── payment_confirmation_sheet.dart
-    ├── expenses/presentation/
-    │   ├── manual_expense_screen.dart
-    │   ├── search_screen.dart
-    │   └── expense_detail_screen.dart
-    ├── analytics/presentation/analytics_screen.dart  # fl_chart, table_calendar
-    └── settings/presentation/
-        ├── settings_screen.dart
-        └── manage_tags_screen.dart
+└── features/
+    ├── onboarding/         onboarding_screen.dart
+    ├── auth/               pin_setup_screen, lock_screen
+    ├── dashboard/          dashboard_screen (+ limit cards, bottom chrome)
+    ├── scanner/            scanner_screen (mobile_scanner)
+    ├── payment/            metadata, upi_app_picker, confirmation_sheet
+    ├── expenses/           manual, search, expense_detail
+    ├── analytics/          analytics_screen (charts, calendar)
+    └── settings/           settings, manage_tags, backup
 ```
 
 ---
 
 ## Routes (`GoRouter`)
 
-| Path | Screen | Notes |
-|------|--------|-------|
-| `/onboarding` | OnboardingScreen | Redirect if not complete |
-| `/pin-setup` | PinSetupScreen | Optional 4-digit PIN |
-| `/lock` | LockScreen | Standalone route (shell uses overlay) |
-| `/` | DashboardScreen | Home, FAB scan + manual |
-| `/scanner` | ScannerScreen | QR → `/metadata` with `extra` |
-| `/metadata` | ExpenseMetadataScreen | `extra`: upiId, merchantName, amount |
-| `/manual-expense` | ManualExpenseScreen | |
-| `/analytics` | AnalyticsScreen | |
-| `/search` | SearchScreen | |
-| `/settings` | SettingsScreen | |
-| `/manage-tags` | ManageTagsScreen | |
-| `/expense/:id` | ExpenseDetailScreen | |
+| Path | Screen |
+|------|--------|
+| `/onboarding` | OnboardingScreen |
+| `/pin-setup` | PinSetupScreen |
+| `/lock` | LockScreen |
+| `/` | DashboardScreen |
+| `/scanner` | ScannerScreen |
+| `/metadata` | ExpenseMetadataScreen — `extra`: upiId, merchantName, amount |
+| `/manual-expense` | ManualExpenseScreen |
+| `/analytics` | AnalyticsScreen |
+| `/search` | SearchScreen |
+| `/settings` | SettingsScreen |
+| `/manage-tags` | ManageTagsScreen |
+| `/backup` | BackupScreen |
+| `/expense/:id` | ExpenseDetailScreen |
 
-**Shell (`_AppShell`):** App resume → `PaymentFlowService.checkPendingOnResume()` → `PaymentConfirmationSheet.show()`.
+**Shell:** On resume → `checkPendingOnResume()` → `PaymentConfirmationSheet`.
 
 ---
 
 ## Riverpod providers
 
-| Provider | Type | Purpose |
-|----------|------|---------|
-| `sharedPreferencesProvider` | Provider | Overridden in `main.dart` |
-| `hiveStorageProvider` | Provider | `HiveStorage.instance` |
-| `expenseRepositoryProvider` | Provider | |
-| `tagRepositoryProvider` | Provider | |
-| `upiParserProvider` | Provider | |
-| `upiPaymentServiceProvider` | Provider | |
-| `paymentFlowServiceProvider` | Provider | |
-| `authServiceProvider` | Provider | |
-| `analyticsServiceProvider` | Provider | |
-| `notificationServiceProvider` | Provider | |
-| `expensesProvider` | StateNotifierProvider | `List<Expense>` |
-| `tagsProvider` | StateNotifierProvider | `List<ExpenseTag>` |
-| `themeModeProvider` | StateNotifierProvider | `ThemeMode` |
-| `pendingPaymentProvider` | StateProvider | `PendingPayment?` |
-| `routerProvider` | Provider | `GoRouter` |
+| Provider | Type | Role |
+|----------|------|------|
+| `sharedPreferencesProvider` | Provider | Overridden in `main()` |
+| `hiveStorageProvider` | Provider | Singleton Hive |
+| `expenseRepositoryProvider` | Provider | CRUD + search |
+| `tagRepositoryProvider` | Provider | Tags CRUD |
+| `upiParserProvider` | Provider | QR / URI |
+| `upiPaymentServiceProvider` | Provider | Android intents |
+| `paymentFlowServiceProvider` | Provider | Pending + launch |
+| `authServiceProvider` | Provider | PIN / biometric |
+| `analyticsServiceProvider` | Provider | Aggregations |
+| `notificationServiceProvider` | Provider | Local notifications |
+| `spendingLimitServiceProvider` | Provider | Daily/monthly limits |
+| `backupServiceProvider` | Provider | JSON export/import |
+| `userPreferencesProvider` | StateNotifier | Live settings |
+| `expensesProvider` | StateNotifier | `List<Expense>` |
+| `tagsProvider` | StateNotifier | `List<ExpenseTag>` |
+| `themeModeProvider` | StateNotifier | ThemeMode |
+| `pendingPaymentProvider` | StateProvider | Active pending |
+| `routerProvider` | Provider | GoRouter |
 
 ---
 
-## Hive storage
+## Core user flows
 
-| Box constant | Content |
-|--------------|---------|
-| `expenses` | `Expense` JSON by id |
-| `tags` | `ExpenseTag` JSON by id |
-| `pending_payments` | `PendingPayment` JSON by id |
-
-**API highlights:** `getAllExpenses`, `saveExpense`, `getLatestPending`, `exportJson`, `importJson`, `clearAllData`.
-
----
-
-## UPI payment flow (end-to-end)
-
+### UPI pay flow
 ```
-ScannerScreen.onDetect
-  → UpiParserService.parse(raw)
-  → context.push('/metadata', extra: { upiId, merchantName, amount })
-
-ExpenseMetadataScreen._pay
-  → UpiAppPickerSheet.show (or default app from prefs)
-  → PaymentFlowService.startPaymentFlow
-       → builds upi:// URI
-       → saves PendingPayment
-       → UpiPaymentService.launchPayment (Android intent / url_launcher)
-
-User returns to app
-  → _AppShell.didChangeAppLifecycleState(resumed)
-  → checkPendingOnResume
-  → PaymentConfirmationSheet → completePayment(status)
-  → Expense saved via ExpenseRepository
+Scan QR → UpiParserService.parse
+       → /metadata (amount*, tags*, note per NoteFieldMode)
+       → merchant amount lock? (userPreferences.allowEditMerchantAmount)
+       → limit check (spendingLimitService)
+       → UpiAppPickerSheet or default app
+       → PaymentFlowService.startPaymentFlow → external UPI app
+       → resume → PaymentConfirmationSheet → Expense saved
 ```
 
-**Android channel:** `com.upitracker/upi`  
-Methods: `getInstalledUpiApps`, `launchUpiIntent`, `launchUpiChooser`
+### Settings-driven behavior
+- **Note field:** `NoteFieldMode` mandatory | optional | disabled
+- **Merchant amount:** prefilled from QR `am`; banner + read-only if locked
+- **Limits:** daily/monthly with `LimitProgressCard` on dashboard
+- **Compensation:** yesterday overspend reduces today's effective daily limit
+- **Backup:** v1 JSON, optional AES, merge/replace import via `file_picker`
+
+### Dashboard chrome
+`PayTrackBottomChrome` = `PayTrackDualActionBar` (Add expense | Scan QR) + `NavigationBar` (Home | Analytics)
 
 ---
 
-## Domain models (fields)
+## Persistence
 
-### `Expense`
-`id`, `amount`, `tagIds[]`, `createdAt`, `notes?`, `merchantName?`, `upiId?`, `paymentAppId?`, `paymentAppName?`, `status`, `receiptPath?`, `paymentSource?`, `isManual`, `currency`
-
-### `ExpenseTag`
-`id`, `name`, `iconName`, `colorValue` (ARGB int), `usageCount`
-
-### `PendingPayment`
-`id`, `amount`, `tagIds[]`, `upiId`, `startedAt`, `merchantName?`, `notes?`, `paymentAppId?`, `paymentAppName?`, `transactionNote?`
+| Store | Keys / boxes |
+|-------|----------------|
+| Hive `expenses` | Expense JSON |
+| Hive `tags` | ExpenseTag JSON |
+| Hive `pending_payments` | PendingPayment JSON |
+| SharedPreferences | onboarding, theme, UPI app prefs, limits, note mode, compensation excess per date |
+| Secure storage | PIN hash |
 
 ---
 
-## SharedPreferences keys (`AppConstants`)
+## Domain models (summary)
 
-| Key | Usage |
-|-----|--------|
-| `onboarding_done` | Skip onboarding |
-| `pin_hash` | In secure storage, not prefs |
-| `biometric_enabled` | |
-| `theme_mode` | light / dark / system |
-| `default_upi_app` | App id string |
-| `always_use_default_app` | Skip picker |
-| `last_upi_app` | Recommended badge |
-| `upi_app_usage_<id>` | Usage counts |
-| `notifications_enabled`, `daily_summary_notif`, `weekly_report_notif`, `budget_alerts` | |
+- **Expense** — amount, tagIds[], status, merchant, upiId, paymentApp*, notes, isManual, receiptPath
+- **UserPreferences** — noteFieldMode, merchant amount edit, daily/monthly limits, alerts, compensation, encryptedBackup
+- **LimitStatus** — spent, effectiveLimit, percentUsed, messages for UI cards
+- **NoteFieldMode** — mandatory | optional | disabled
 
 ---
 
 ## Native / platform
 
-| File | Role |
-|------|------|
-| `android/app/src/main/kotlin/.../MainActivity.kt` | UPI MethodChannel |
-| `android/app/src/main/AndroidManifest.xml` | Camera, notifications, `<queries>` for UPI packages |
-| `android/app/build.gradle.kts` | Core library desugaring (notifications) |
+| File | Purpose |
+|------|---------|
+| `android/.../MainActivity.kt` | `getInstalledUpiApps`, `launchUpiIntent`, `launchUpiChooser` |
+| `android/.../AndroidManifest.xml` | Camera, notifications, UPI `<queries>` |
+| `android/app/build.gradle.kts` | Core library desugaring |
 | `ios/Runner/Info.plist` | Camera, photos, Face ID strings |
 
 ---
 
-## Dependencies (`pubspec.yaml`)
+## Dependencies (high level)
 
-| Package | Use |
-|---------|-----|
-| flutter_riverpod | State |
-| go_router | Navigation |
-| hive / hive_flutter | Local DB |
-| mobile_scanner | QR |
-| url_launcher | iOS UPI |
-| local_auth, flutter_secure_storage | Security |
-| fl_chart, table_calendar, percent_indicator | Analytics UI |
-| flutter_animate, google_fonts | UI |
-| flutter_local_notifications, timezone | Notifications |
-| permission_handler, image_picker, share_plus | Permissions, receipts, export |
+Riverpod · GoRouter · Hive · mobile_scanner · fl_chart · flutter_animate · google_fonts · local_auth · flutter_secure_storage · flutter_local_notifications · encrypt · file_picker · share_plus · image_picker
 
 ---
 
-## Tests & docs
+## Docs & config
 
 | File | Purpose |
 |------|---------|
-| `test/widget_test.dart` | Smoke test PayTrackApp |
-| `README.md` | User docs, build APK |
+| `README.md` | Overview, build commands |
 | `INSTALLATION.md` | Setup guide |
 | `ARCHITECTURE.md` | Layer design |
 | `CODEBASE_INDEX.md` | This file |
 | `AGENTS.md` | AI agent quick reference |
+| `.cursor/rules/paytrack-codebase.mdc` | Cursor always-on rule |
+| `.gitignore` | Flutter/Android/iOS exclusions |
 
 ---
 
-## Conventions for contributors
+## Conventions
 
-- **New feature screen:** `lib/features/<name>/presentation/<name>_screen.dart` + route in `app_router.dart`
-- **New persisted field:** Update entity `toJson`/`fromJson`, `HiveStorage`, repository if needed
-- **New UPI app:** Add to `UpiAppInfo.knownApps` + `MainActivity.kt` `upiPackages` + manifest `<queries>`
-- **State:** Prefer existing providers; extend `app_providers.dart`
-- **No code generation:** Models are hand-written (no freezed/build_runner)
+1. New screen → `features/<name>/presentation/` + route in `app_router.dart`
+2. New pref → `AppConstants` + `UserPreferences` + `UserPreferencesNotifier`
+3. New UPI app → `UpiAppInfo.knownApps` + `MainActivity.kt` + manifest queries
+4. Payment forms → use `FloatingFormScaffold` for pinned CTA
+5. Dashboard actions → extend `PayTrackDualActionBar`, not floating stacks
 
 ---
 
-*Generated for PayTrack v1.0.0 — 43 Dart files under `lib/`.*
+*Last indexed: PayTrack v1.0.0 — 53 Dart files.*

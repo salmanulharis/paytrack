@@ -33,6 +33,7 @@ class AppConstants {
   static const String prefCompensationEnabled = 'compensation_enabled';
   static const String prefCompensationPrefix = 'compensation_excess_';
   static const String prefEncryptedBackup = 'encrypted_backup';
+  static const String prefLockGraceMinutes = 'lock_grace_minutes';
 
   static const int backupFormatVersion = 1;
   static const double limitWarningThreshold = 0.85;

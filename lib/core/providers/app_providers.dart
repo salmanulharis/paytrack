@@ -9,6 +9,7 @@ import '../../data/repositories/tag_repository.dart';
 import '../constants/app_constants.dart';
 import '../services/analytics_service.dart';
 import '../services/auth_service.dart';
+import '../services/auth_session_service.dart';
 import '../services/backup_service.dart';
 import '../services/notification_service.dart';
 import '../services/payment_flow_service.dart';
@@ -60,6 +61,13 @@ final authServiceProvider = Provider<AuthService>((ref) {
   );
 });
 
+final authSessionServiceProvider = Provider<AuthSessionService>((ref) {
+  return AuthSessionService(
+    ref.watch(sharedPreferencesProvider),
+    ref.watch(authServiceProvider),
+  );
+});
+
 final paymentFlowServiceProvider = Provider<PaymentFlowService>((ref) {
   return PaymentFlowService(
     storage: ref.watch(hiveStorageProvider),
@@ -67,6 +75,7 @@ final paymentFlowServiceProvider = Provider<PaymentFlowService>((ref) {
     upiService: ref.watch(upiPaymentServiceProvider),
     parserService: ref.watch(upiParserProvider),
     prefs: ref.watch(sharedPreferencesProvider),
+    authSession: ref.watch(authSessionServiceProvider),
   );
 });
 

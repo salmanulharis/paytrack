@@ -53,11 +53,6 @@ class UpiAppInfo extends Equatable {
       name: 'Amazon Pay',
       packageName: 'in.amazon.mShop.android.shopping',
     ),
-    UpiAppInfo(
-      id: 'whatsapp',
-      name: 'WhatsApp',
-      packageName: 'com.whatsapp',
-    ),
   ];
 
   UpiAppInfo copyWith({
