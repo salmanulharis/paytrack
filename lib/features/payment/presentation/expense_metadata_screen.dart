@@ -143,8 +143,20 @@ class _ExpenseMetadataScreenState extends ConsumerState<ExpenseMetadataScreen> {
 
     if (alwaysDefault && defaultAppId != null) {
       final apps = await ref.read(upiPaymentServiceProvider).getInstalledUpiApps();
-      app = apps.where((a) => a.id == defaultAppId).firstOrNull ??
-          UpiAppInfo.knownApps.where((a) => a.id == defaultAppId).firstOrNull;
+      app = apps.where((a) => a.id == defaultAppId).firstOrNull;
+      if (app == null) {
+        final known = UpiAppInfo.knownApps
+            .where((a) => a.id == defaultAppId)
+            .firstOrNull;
+        if (known != null && known.packageName.isNotEmpty) {
+          final installed = await ref
+              .read(upiPaymentServiceProvider)
+              .getInstalledUpiApps();
+          if (installed.any((a) => a.packageName == known.packageName)) {
+            app = known;
+          }
+        }
+      }
     }
 
     if (!mounted) return;

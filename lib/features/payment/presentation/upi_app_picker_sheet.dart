@@ -48,7 +48,12 @@ class _UpiAppPickerContentState extends ConsumerState<_UpiAppPickerContent> {
     final flow = ref.read(paymentFlowServiceProvider);
 
     var apps = await service.getInstalledUpiApps();
-    if (apps.isEmpty) apps = UpiAppInfo.knownApps;
+    // Show known wallets when detection is empty so user can still try payment.
+    if (apps.isEmpty) {
+      apps = UpiAppInfo.knownApps
+          .map((a) => a.copyWith(isInstalled: false))
+          .toList();
+    }
 
     apps = apps.map((app) {
       return app.copyWith(usageCount: flow.getAppUsageCount(app.id));

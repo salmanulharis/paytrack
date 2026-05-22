@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/entities/upi_app_info.dart';
 
@@ -18,15 +19,11 @@ class UpiLaunchException implements Exception {
 class UpiPaymentService {
   static const _channel = MethodChannel('com.upitracker/upi');
 
-  static const String _sampleUpiUri =
-      'upi://pay?pa=merchant@upi&pn=Merchant&am=1.00&cu=INR';
-
   Future<List<UpiAppInfo>> getInstalledUpiApps({String? verifyUri}) async {
     if (Platform.isAndroid) {
       try {
         final result = await _channel.invokeMethod<List<dynamic>>(
           'getInstalledUpiApps',
-          {'uri': verifyUri ?? _sampleUpiUri},
         );
         if (result != null) {
           final installedPackages = result.cast<String>().toSet();
@@ -46,7 +43,7 @@ class UpiPaymentService {
     return UpiAppInfo.knownApps;
   }
 
-  /// Opens the selected wallet only — never falls back to [url_launcher] on Android.
+  /// Opens the selected wallet via explicit Android package intent.
   Future<bool> launchPayment({
     required String upiUri,
     required String packageName,
@@ -65,7 +62,7 @@ class UpiPaymentService {
         if (launched == true) return true;
 
         throw UpiLaunchException(
-          'Could not open $appName. Make sure it is installed and supports UPI payments.',
+          'Could not open $appName. Install it and try again, or pick "Other UPI apps".',
           packageName: packageName,
         );
       } on PlatformException catch (e) {
@@ -76,7 +73,10 @@ class UpiPaymentService {
       }
     }
 
-    // iOS: system handles upi:// scheme
+    final uri = Uri.parse(upiUri);
+    if (await canLaunchUrl(uri)) {
+      return launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
     return false;
   }
 
@@ -91,6 +91,11 @@ class UpiPaymentService {
         debugPrint('UPI chooser failed: $e');
         return false;
       }
+    }
+
+    final uri = Uri.parse(upiUri);
+    if (await canLaunchUrl(uri)) {
+      return launchUrl(uri, mode: LaunchMode.externalApplication);
     }
     return false;
   }
