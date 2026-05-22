@@ -56,6 +56,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       'upiId': data.upiId,
       'merchantName': data.merchantName,
       'amount': data.amount,
+      'rawUpiUri': data.rawPayload,
     });
   }
 

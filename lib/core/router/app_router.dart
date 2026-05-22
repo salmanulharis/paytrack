@@ -71,6 +71,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 upiId: extra['upiId'] as String? ?? '',
                 merchantName: extra['merchantName'] as String?,
                 prefilledAmount: extra['amount'] as double?,
+                rawUpiUri: extra['rawUpiUri'] as String?,
               );
             },
           ),

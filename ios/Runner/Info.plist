@@ -14,6 +14,23 @@
 	<string>Photo library access lets you attach receipt images to expenses.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Face ID secures your expense data when opening the app.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>upi</string>
+		<string>tez</string>
+		<string>gpay</string>
+		<string>googlepay</string>
+		<string>phonepe</string>
+		<string>paytmmp</string>
+		<string>paytm</string>
+		<string>bhim</string>
+		<string>credpay</string>
+		<string>cred</string>
+		<string>jupiter</string>
+		<string>amazonpay</string>
+		<string>mobikwik</string>
+		<string>freecharge</string>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

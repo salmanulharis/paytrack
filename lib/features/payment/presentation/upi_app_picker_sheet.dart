@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/platform/app_platform.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/upi_app_info.dart';
@@ -114,7 +115,11 @@ class _UpiAppPickerContentState extends ConsumerState<_UpiAppPickerContent> {
           ListTile(
             leading: const Icon(Icons.apps_rounded),
             title: const Text('Other UPI apps'),
-            subtitle: const Text('Opens system chooser'),
+            subtitle: Text(
+              appPlatform == AppPlatformKind.ios
+                  ? 'Opens the iOS app picker for UPI'
+                  : 'Opens Android UPI app chooser',
+            ),
             onTap: () {
               widget.onSelected(const UpiAppInfo(
                 id: 'other',
@@ -173,7 +178,13 @@ class _AppTile extends StatelessWidget {
           ],
         ],
       ),
-      subtitle: app.isInstalled ? null : const Text('May open via chooser'),
+      subtitle: app.isInstalled
+          ? null
+          : Text(
+              appPlatform == AppPlatformKind.ios
+                  ? 'Not detected — tap to try anyway'
+                  : 'May open via chooser',
+            ),
       trailing: const Icon(Icons.chevron_right_rounded),
     );
   }

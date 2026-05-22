@@ -55,7 +55,7 @@ lib/
 
 - Flutter SDK **3.41+** (stable channel)
 - Android Studio / Xcode for device builds
-- Physical Android device recommended for UPI intent testing
+- Physical Android or iPhone recommended for UPI testing (simulators cannot complete real payments)
 
 ## Installation
 
@@ -109,19 +109,29 @@ flutter build ios --release
 2. App parses UPI ID, merchant name, optional amount
 3. User enters amount (required) and selects ≥1 category tag
 4. User picks payment app (or uses default if configured)
-5. Android launches app-specific intent; iOS opens `upi://` via system
+5. Android launches app-specific intent; iOS opens wallet deep link (`tez://`, `phonepe://`, etc.) or generic `upi://`
 6. On return, confirmation sheet asks: *Was payment successful?*
 7. Expense saved with status: success / failed / cancelled
 
 > **Note:** UPI apps do not return payment callbacks to third-party apps. Confirmation is user-assisted by design (industry standard for expense trackers without NPCI verification APIs).
 
-## Android UPI Integration
+## UPI Integration (Android + iOS)
 
-Native Kotlin code in `MainActivity.kt` provides:
+Both platforms use the same Flutter method channel: `com.upitracker/upi`.
 
-- `getInstalledUpiApps` — Package visibility for GPay, PhonePe, Paytm, CRED, Jupiter, BHIM, etc.
-- `launchUpiIntent` — Direct launch with `upi://pay` URI + package name
-- `launchUpiChooser` — System chooser fallback
+| Method | Android (`MainActivity.kt`) | iOS (`AppDelegate.swift` / `UpiPlugin`) |
+|--------|---------------------------|----------------------------------------|
+| `getInstalledUpiApps` | Installed wallet package IDs | Probes URL schemes (`tez`, `phonepe`, `paytmmp`, …) |
+| `launchUpiIntent` | `Intent` + `setPackage` | Wallet-specific URL, then `upi://pay` fallback |
+| `launchUpiChooser` | Filtered wallet chooser | Opens generic `upi://pay` (system picker) |
+
+Dart layer (`UpiPaymentService`):
+
+- Android: `android_intent_plus` → method channel → `url_launcher`
+- iOS: method channel → `UpiIosUriBuilder` → `url_launcher`
+- Scanned QR payload is merged into payment URI on both platforms
+
+iOS requires `LSApplicationQueriesSchemes` in `Info.plist` (configured).
 
 ## Configuration
 
@@ -181,4 +191,4 @@ MIT — Use freely for personal and commercial projects.
 
 ## Support
 
-For UPI intent issues on Android 11+, ensure `<queries>` in `AndroidManifest.xml` includes target package names (already configured).
+For UPI issues: on Android 11+, ensure `<queries>` in `AndroidManifest.xml` lists wallet packages; on iOS, ensure wallet apps are installed and `LSApplicationQueriesSchemes` in `Info.plist` is present (both configured in this repo).

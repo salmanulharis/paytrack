@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-
 import '../../../core/constants/app_constants.dart';
+import '../../../core/platform/app_platform.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/services/upi_payment_service.dart';
 import '../../../core/widgets/floating_form_scaffold.dart';
@@ -19,11 +18,14 @@ class ExpenseMetadataScreen extends ConsumerStatefulWidget {
     required this.upiId,
     this.merchantName,
     this.prefilledAmount,
+    this.rawUpiUri,
   });
 
   final String upiId;
   final String? merchantName;
   final double? prefilledAmount;
+  /// Original scanned QR payload — merged into payment URI for wallet compatibility.
+  final String? rawUpiUri;
 
   @override
   ConsumerState<ExpenseMetadataScreen> createState() => _ExpenseMetadataScreenState();
@@ -117,6 +119,11 @@ class _ExpenseMetadataScreenState extends ConsumerState<ExpenseMetadataScreen> {
   }
 
   Future<void> _pay() async {
+    if (!supportsUpiPayments) {
+      _showSnack('UPI payments are available on Android and iOS only');
+      return;
+    }
+
     final userPrefs = ref.read(userPreferencesProvider);
     final amount = double.tryParse(_amountController.text.replaceAll(',', ''));
     if (amount == null || amount <= 0) {
@@ -162,10 +169,22 @@ class _ExpenseMetadataScreenState extends ConsumerState<ExpenseMetadataScreen> {
     if (!mounted) return;
     app ??= await UpiAppPickerSheet.show(context);
     if (app == null || !mounted) return;
+    final selectedApp = app;
 
-    if (app.packageName.isEmpty && app.id != 'other') {
-      _showSnack('${app.name} is not installed on this device');
+    if (widget.upiId.trim().isEmpty) {
+      _showSnack('Invalid UPI ID from QR — scan again');
       return;
+    }
+
+    if (selectedApp.packageName.isEmpty && selectedApp.id != 'other') {
+      final installed =
+          await ref.read(upiPaymentServiceProvider).getInstalledUpiApps();
+      if (!installed.any((a) => a.id == selectedApp.id)) {
+        _showSnack(
+          '${selectedApp.name} is not installed — pick another app or "Other UPI apps"',
+        );
+        return;
+      }
     }
 
     setState(() => _isPaying = true);
@@ -173,47 +192,39 @@ class _ExpenseMetadataScreenState extends ConsumerState<ExpenseMetadataScreen> {
     try {
       ref.read(authSessionServiceProvider).suspendLockForExternalFlow();
 
-      final noteText = userPrefs.noteFieldMode == NoteFieldMode.disabled
-          ? 'PayTrack'
-          : (_notesController.text.trim().isEmpty
-              ? 'PayTrack'
-              : _notesController.text.trim());
-
       final flow = ref.read(paymentFlowServiceProvider);
-      if (app.id == 'other') {
-        final uri = ref.read(upiParserProvider).buildUpiUri(
-              upiId: widget.upiId,
-              merchantName: widget.merchantName,
-              amount: amount,
-              transactionNote: noteText,
-            );
-        ref.read(authSessionServiceProvider).suspendLockForExternalFlow();
-        final launched =
-            await ref.read(upiPaymentServiceProvider).launchGenericChooser(uri);
-        if (!launched) {
-          _showSnack('No UPI app available to handle payment');
-          return;
-        }
+      final notesValue = userPrefs.noteFieldMode == NoteFieldMode.disabled
+          ? null
+          : _notesController.text.trim();
+
+      if (selectedApp.id == 'other') {
+        await flow.startPaymentViaChooser(
+          upiId: widget.upiId,
+          amount: amount,
+          tagIds: _selectedTags.toList(),
+          merchantName: widget.merchantName,
+          notes: notesValue,
+          rawQrPayload: widget.rawUpiUri,
+        );
       } else {
         await flow.startPaymentFlow(
           upiId: widget.upiId,
           amount: amount,
           tagIds: _selectedTags.toList(),
           merchantName: widget.merchantName,
-          notes: userPrefs.noteFieldMode == NoteFieldMode.disabled
-              ? null
-              : _notesController.text.trim(),
-          paymentAppId: app.id,
-          paymentAppName: app.name,
-          packageName: app.packageName,
+          notes: notesValue,
+          rawQrPayload: widget.rawUpiUri,
+          paymentAppId: selectedApp.id,
+          paymentAppName: selectedApp.name,
+          packageName: selectedApp.packageName,
         );
       }
 
       if (mounted) {
-        context.pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Complete payment in your UPI app, then return here'),
+            content: Text('Complete payment in your UPI app, then return to PayTrack'),
+            duration: Duration(seconds: 4),
           ),
         );
       }

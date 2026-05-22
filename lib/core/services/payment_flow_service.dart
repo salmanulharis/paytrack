@@ -9,7 +9,7 @@ import '../../domain/entities/expense_status.dart';
 import '../../domain/entities/pending_payment.dart';
 import 'auth_session_service.dart';
 import 'upi_parser_service.dart';
-import 'upi_payment_service.dart';
+import 'upi_payment_service.dart' show UpiLaunchException, UpiPaymentService;
 
 class PaymentFlowService {
   PaymentFlowService({
@@ -44,17 +44,97 @@ class PaymentFlowService {
     required List<String> tagIds,
     String? merchantName,
     String? notes,
+    String? rawQrPayload,
     required String paymentAppId,
     required String paymentAppName,
     required String packageName,
   }) async {
+    final pending = await _createPending(
+      upiId: upiId,
+      amount: amount,
+      tagIds: tagIds,
+      merchantName: merchantName,
+      notes: notes,
+      rawQrPayload: rawQrPayload,
+      paymentAppId: paymentAppId,
+      paymentAppName: paymentAppName,
+    );
+
+    await _recordAppUsage(paymentAppId);
+    _authSession.suspendLockForExternalFlow();
+
+    final uri = _parser.buildPaymentUri(
+      upiId: upiId,
+      merchantName: merchantName,
+      amount: amount,
+      transactionNote: pending.transactionNote ?? 'PayTrack expense',
+      rawQrPayload: rawQrPayload,
+    );
+
+    await _upiService.launchPayment(
+      upiUri: uri,
+      packageName: packageName,
+      appName: paymentAppName,
+      appId: paymentAppId,
+    );
+
+    return pending;
+  }
+
+  /// Saves pending payment and opens system UPI chooser (no fixed package).
+  Future<PendingPayment> startPaymentViaChooser({
+    required String upiId,
+    required double amount,
+    required List<String> tagIds,
+    String? merchantName,
+    String? notes,
+    String? rawQrPayload,
+  }) async {
+    final pending = await _createPending(
+      upiId: upiId,
+      amount: amount,
+      tagIds: tagIds,
+      merchantName: merchantName,
+      notes: notes,
+      rawQrPayload: rawQrPayload,
+      paymentAppId: 'other',
+      paymentAppName: 'Other',
+    );
+
+    _authSession.suspendLockForExternalFlow();
+
+    final uri = pending.upiLaunchUri;
+    if (uri == null) {
+      throw UpiLaunchException('Invalid payment link');
+    }
+    final launched = await _upiService.launchGenericChooser(uri);
+    if (!launched) {
+      await _storage.clearPending(pending.id);
+      _activePendingId = null;
+      throw UpiLaunchException('No UPI app available to handle payment');
+    }
+
+    return pending;
+  }
+
+  Future<PendingPayment> _createPending({
+    required String upiId,
+    required double amount,
+    required List<String> tagIds,
+    String? merchantName,
+    String? notes,
+    String? rawQrPayload,
+    required String paymentAppId,
+    required String paymentAppName,
+  }) async {
     final id = _uuid.v4();
     final note = notes ?? 'PayTrack expense';
-    final uri = _parser.buildUpiUri(
+    final uri = _parser.buildPaymentUri(
       upiId: upiId,
       merchantName: merchantName,
       amount: amount,
       transactionNote: note,
+      rawQrPayload: rawQrPayload,
     );
 
     final pending = PendingPayment(
@@ -68,21 +148,11 @@ class PaymentFlowService {
       paymentAppId: paymentAppId,
       paymentAppName: paymentAppName,
       transactionNote: note,
+      upiLaunchUri: uri,
     );
 
     await _storage.savePending(pending);
     _activePendingId = id;
-
-    await _recordAppUsage(paymentAppId);
-
-    _authSession.suspendLockForExternalFlow();
-
-    await _upiService.launchPayment(
-      upiUri: uri,
-      packageName: packageName,
-      appName: paymentAppName,
-    );
-
     return pending;
   }
 

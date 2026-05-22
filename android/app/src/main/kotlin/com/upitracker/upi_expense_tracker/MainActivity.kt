@@ -5,12 +5,15 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val channelName = "com.upitracker/upi"
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     /** Verified UPI wallet packages only — no messengers/social apps. */
     private val upiWalletPackages = listOf(
@@ -43,11 +46,13 @@ class MainActivity : FlutterActivity() {
                     "launchUpiIntent" -> {
                         val uri = call.argument<String>("uri")
                         val pkg = call.argument<String>("package")
+                        @Suppress("UNUSED_VARIABLE")
+                        val appId = call.argument<String>("appId")
                         if (uri == null || pkg.isNullOrBlank()) {
                             result.success(false)
                             return@setMethodCallHandler
                         }
-                        runOnUiThread {
+                        runOnMain {
                             result.success(launchUpiExplicit(uri, pkg))
                         }
                     }
@@ -57,13 +62,21 @@ class MainActivity : FlutterActivity() {
                             result.success(false)
                             return@setMethodCallHandler
                         }
-                        runOnUiThread {
+                        runOnMain {
                             result.success(launchUpiChooser(uri))
                         }
                     }
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun runOnMain(block: () -> Unit) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            block()
+        } else {
+            mainHandler.post(block)
+        }
     }
 
     private fun isPackageInstalled(packageName: String): Boolean {
@@ -83,66 +96,86 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun queryFlags(): Int {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PackageManager.MATCH_ALL
+        } else {
+            @Suppress("DEPRECATION")
+            PackageManager.GET_RESOLVED_FILTER
+        }
+    }
+
     /**
-     * Opens UPI in the selected wallet. Always sets [Intent.setPackage] so WhatsApp
-     * and other apps cannot intercept. Does not use a system-wide chooser.
+     * Opens UPI in the selected wallet. [Intent.setPackage] prevents WhatsApp intercept.
      */
     private fun launchUpiExplicit(uri: String, packageName: String): Boolean {
         if (!isPackageInstalled(packageName)) return false
 
         val parsed = Uri.parse(uri)
 
-        // 1) Standard package-targeted deep link (works for GPay, PhonePe, Paytm, etc.)
-        try {
-            val intent = Intent(Intent.ACTION_VIEW, parsed).apply {
-                setPackage(packageName)
-            }
-            startActivity(intent)
-            return true
-        } catch (_: ActivityNotFoundException) {
-            // fall through
-        } catch (_: SecurityException) {
-            // fall through
+        // 1) Package-targeted VIEW intent (GPay, PhonePe, Paytm, …)
+        val targeted = Intent(Intent.ACTION_VIEW, parsed).apply {
+            setPackage(packageName)
+            addCategory(Intent.CATEGORY_DEFAULT)
+        }
+        if (canResolve(targeted)) {
+            return startSafely(targeted)
         }
 
-        // 2) Explicit activity component inside the wallet package
+        // 2) Explicit component for that package
         val handlers = packageManager.queryIntentActivities(
             Intent(Intent.ACTION_VIEW, parsed),
-            PackageManager.MATCH_DEFAULT_ONLY,
-        ).filter { resolve ->
-            resolve.activityInfo.packageName == packageName
-        }
+            queryFlags(),
+        ).filter { it.activityInfo.packageName == packageName }
 
         for (resolve in handlers) {
-            try {
-                val intent = Intent(Intent.ACTION_VIEW, parsed).apply {
-                    setClassName(
-                        resolve.activityInfo.packageName,
-                        resolve.activityInfo.name,
-                    )
-                }
-                startActivity(intent)
-                return true
-            } catch (_: ActivityNotFoundException) {
-                continue
-            } catch (_: SecurityException) {
-                continue
+            val explicit = Intent(Intent.ACTION_VIEW, parsed).apply {
+                setClassName(
+                    resolve.activityInfo.packageName,
+                    resolve.activityInfo.name,
+                )
+                addCategory(Intent.CATEGORY_DEFAULT)
             }
+            if (startSafely(explicit)) return true
         }
 
-        return false
+        // 3) Generic VIEW + package (some OEM builds)
+        val fallback = Intent(Intent.ACTION_VIEW, parsed).apply {
+            setPackage(packageName)
+        }
+        return startSafely(fallback)
     }
 
-    /** Limited chooser: only verified wallet apps, never messengers. */
+    private fun canResolve(intent: Intent): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.resolveActivity(
+                intent,
+                PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong()),
+            ) != null
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY) != null
+        }
+    }
+
+    private fun startSafely(intent: Intent): Boolean {
+        return try {
+            startActivity(intent)
+            true
+        } catch (_: ActivityNotFoundException) {
+            false
+        } catch (_: SecurityException) {
+            false
+        }
+    }
+
     private fun launchUpiChooser(uri: String): Boolean {
         val parsed = Uri.parse(uri)
-        val probe = Intent(Intent.ACTION_VIEW, parsed)
-        val handlers = packageManager.queryIntentActivities(
-            probe,
-            PackageManager.MATCH_DEFAULT_ONLY,
-        ).filter { resolve ->
-            upiWalletPackages.contains(resolve.activityInfo.packageName)
+        val probe = Intent(Intent.ACTION_VIEW, parsed).apply {
+            addCategory(Intent.CATEGORY_DEFAULT)
         }
+        val handlers = packageManager.queryIntentActivities(probe, queryFlags())
+            .filter { upiWalletPackages.contains(it.activityInfo.packageName) }
 
         if (handlers.isEmpty()) return false
         if (handlers.size == 1) {

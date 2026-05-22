@@ -12,6 +12,7 @@ class PendingPayment extends Equatable {
     this.paymentAppId,
     this.paymentAppName,
     this.transactionNote,
+    this.upiLaunchUri,
   });
 
   final String id;
@@ -24,6 +25,7 @@ class PendingPayment extends Equatable {
   final String? paymentAppId;
   final String? paymentAppName;
   final String? transactionNote;
+  final String? upiLaunchUri;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -36,6 +38,7 @@ class PendingPayment extends Equatable {
         'paymentAppId': paymentAppId,
         'paymentAppName': paymentAppName,
         'transactionNote': transactionNote,
+        'upiLaunchUri': upiLaunchUri,
       };
 
   factory PendingPayment.fromJson(Map<String, dynamic> json) => PendingPayment(
@@ -49,6 +52,7 @@ class PendingPayment extends Equatable {
         paymentAppId: json['paymentAppId'] as String?,
         paymentAppName: json['paymentAppName'] as String?,
         transactionNote: json['transactionNote'] as String?,
+        upiLaunchUri: json['upiLaunchUri'] as String?,
       );
 
   @override
@@ -63,5 +67,6 @@ class PendingPayment extends Equatable {
         paymentAppId,
         paymentAppName,
         transactionNote,
+        upiLaunchUri,
       ];
 }
