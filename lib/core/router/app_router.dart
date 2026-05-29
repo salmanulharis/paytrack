@@ -43,26 +43,26 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/onboarding',
-        builder: (_, __) => const OnboardingScreen(),
+        builder: (context, state) => const OnboardingScreen(),
       ),
       GoRoute(
         path: '/pin-setup',
-        builder: (_, __) => const PinSetupScreen(),
+        builder: (context, state) => const PinSetupScreen(),
       ),
       GoRoute(
         path: '/lock',
-        builder: (_, __) => const LockScreen(),
+        builder: (context, state) => const LockScreen(),
       ),
       ShellRoute(
         builder: (context, state, child) => _AppShell(child: child),
         routes: [
           GoRoute(
             path: '/',
-            builder: (_, __) => const DashboardScreen(),
+            builder: (context, state) => const DashboardScreen(),
           ),
           GoRoute(
             path: '/scanner',
-            builder: (_, __) => const ScannerScreen(),
+            builder: (context, state) => const ScannerScreen(),
           ),
           GoRoute(
             path: '/metadata',
@@ -78,7 +78,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/manual-expense',
-            builder: (_, __) => const ManualExpenseScreen(),
+            builder: (context, state) => const ManualExpenseScreen(),
           ),
           GoRoute(
             path: '/edit-expense/:id',
@@ -90,27 +90,27 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/expenses',
-            builder: (_, __) => const MonthlyExpensesScreen(),
+            builder: (context, state) => const MonthlyExpensesScreen(),
           ),
           GoRoute(
             path: '/analytics',
-            builder: (_, __) => const AnalyticsScreen(),
+            builder: (context, state) => const AnalyticsScreen(),
           ),
           GoRoute(
             path: '/search',
-            builder: (_, __) => const SearchScreen(),
+            builder: (context, state) => const SearchScreen(),
           ),
           GoRoute(
             path: '/settings',
-            builder: (_, __) => const SettingsScreen(),
+            builder: (context, state) => const SettingsScreen(),
           ),
           GoRoute(
             path: '/manage-tags',
-            builder: (_, __) => const ManageTagsScreen(),
+            builder: (context, state) => const ManageTagsScreen(),
           ),
           GoRoute(
             path: '/backup',
-            builder: (_, __) => const BackupScreen(),
+            builder: (context, state) => const BackupScreen(),
           ),
           GoRoute(
             path: '/expense/:id',

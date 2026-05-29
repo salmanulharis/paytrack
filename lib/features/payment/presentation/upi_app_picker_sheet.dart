@@ -14,8 +14,8 @@ class UpiAppPickerSheet {
     return showModalBottomSheet<UpiAppInfo>(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => ProviderScope(
-        parent: ProviderScope.containerOf(context),
+      builder: (ctx) => UncontrolledProviderScope(
+        container: ProviderScope.containerOf(context),
         child: _UpiAppPickerContent(
           onSelected: (app) => Navigator.pop(ctx, app),
         ),

@@ -5,6 +5,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/platform/app_platform.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/services/upi_payment_service.dart';
+import '../../../core/utils/app_log.dart';
 import '../../../core/widgets/floating_form_scaffold.dart';
 import '../../../core/widgets/merchant_amount_banner.dart';
 import '../../../core/widgets/tag_chip.dart';
@@ -231,7 +232,10 @@ class _ExpenseMetadataScreenState extends ConsumerState<ExpenseMetadataScreen> {
     } on UpiLaunchException catch (e) {
       _showSnack(e.message);
     } catch (e) {
-      _showSnack('Could not open payment app: $e');
+      _showSnack(
+        'Could not open payment app. Try another UPI app or install a supported wallet.',
+      );
+      appLog('Payment launch failed', e);
     } finally {
       if (mounted) setState(() => _isPaying = false);
     }

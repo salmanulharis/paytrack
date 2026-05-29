@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../core/services/backup_service.dart';
+import '../../../core/utils/app_log.dart';
 import '../../../domain/entities/expense_status.dart';
 
 class BackupScreen extends ConsumerStatefulWidget {
@@ -50,7 +51,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
         subject: 'PayTrack Backup',
       );
     } catch (e) {
-      _showError('Export failed: $e');
+      _showError('Export failed. Please try again.');
+      appLog('Backup export failed', e);
     } finally {
       if (mounted) setState(() => _isBusy = false);
     }
@@ -62,6 +64,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       allowedExtensions: ['json'],
     );
     if (result == null || result.files.single.path == null) return;
+    if (!mounted) return;
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -102,7 +105,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     } on BackupValidationException catch (e) {
       _showError(e.message);
     } catch (e) {
-      _showError('Import failed: $e');
+      _showError('Import failed. Check the file and try again.');
+      appLog('Backup import failed', e);
     } finally {
       if (mounted) setState(() => _isBusy = false);
     }
@@ -110,7 +114,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.red.shade700),
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Theme.of(context).colorScheme.error,
+      ),
     );
   }
 

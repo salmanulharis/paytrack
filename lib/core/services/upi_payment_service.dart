@@ -1,5 +1,6 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+
+import '../utils/app_log.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../platform/app_platform.dart';
@@ -41,7 +42,7 @@ class UpiPaymentService {
           if (apps.isNotEmpty) return apps;
         }
       } catch (e) {
-        debugPrint('Native UPI app detection failed: $e');
+        appLog('Native UPI app detection failed', e);
       }
     }
 
@@ -86,7 +87,7 @@ class UpiPaymentService {
       throw UpiLaunchException('No payment app selected');
     }
 
-    debugPrint('UPI launch [$appPlatform]: $upiUri app=$appId pkg=$packageName');
+    appLog('UPI launch [$appPlatform]: $upiUri app=$appId pkg=$packageName');
 
     if (appPlatform == AppPlatformKind.android) {
       return _launchAndroid(upiUri, packageName, appName, appId);
@@ -119,7 +120,7 @@ class UpiPaymentService {
       });
       if (launched == true) return true;
     } on PlatformException catch (e) {
-      debugPrint('Android UPI channel failed: $e');
+      appLog('Android UPI channel failed', e);
     }
 
     if (await _openExternalUri(upiUri)) return true;
@@ -145,7 +146,7 @@ class UpiPaymentService {
       });
       if (launched == true) return true;
     } on PlatformException catch (e) {
-      debugPrint('iOS UPI channel failed: $e');
+      appLog('iOS UPI channel failed', e);
     }
 
     final app = UpiAppInfo.knownApps.where((a) => a.id == appId).firstOrNull;
@@ -175,7 +176,7 @@ class UpiPaymentService {
         });
         if (launched == true) return true;
       } catch (e) {
-        debugPrint('UPI chooser channel failed: $e');
+        appLog('UPI chooser channel failed', e);
       }
     }
 
@@ -190,7 +191,7 @@ class UpiPaymentService {
         return launchUrl(uri, mode: LaunchMode.externalApplication);
       }
     } catch (e) {
-      debugPrint('url_launcher failed: $e');
+      appLog('url_launcher failed', e);
     }
     return false;
   }

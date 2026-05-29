@@ -2,7 +2,8 @@ import 'dart:io' show Platform;
 
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
-import 'package:flutter/foundation.dart';
+
+import '../../utils/app_log.dart';
 
 /// Android-only UPI intent launcher (no-op on other platforms).
 Future<bool> launchAndroidUpiIntent({
@@ -21,7 +22,7 @@ Future<bool> launchAndroidUpiIntent({
     await intent.launch();
     return true;
   } catch (e) {
-    debugPrint('AndroidIntent UPI launch failed: $e');
+    appLog('AndroidIntent UPI launch failed', e);
     return false;
   }
 }

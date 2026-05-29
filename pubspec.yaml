@@ -1,5 +1,5 @@
 name: upi_expense_tracker
-description: AI-powered UPI expense tracker — log expenses before payment, track in real time.
+description: PayTrack — UPI expense tracker. Log expenses before payment, track spending in real time.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -42,7 +42,6 @@ dependencies:
   smooth_page_indicator: ^1.2.1
   percent_indicator: ^4.2.4
   table_calendar: ^3.2.0
-  csv: ^6.0.0
   file_picker: ^8.3.7
 
 dev_dependencies:

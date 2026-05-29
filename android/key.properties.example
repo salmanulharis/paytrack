@@ -1,0 +1,6 @@
+# Copy to android/key.properties and fill in for release signing.
+# Do NOT commit key.properties or keystore files.
+storePassword=your-store-password
+keyPassword=your-key-password
+keyAlias=upload
+storeFile=../upload-keystore.jks

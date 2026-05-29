@@ -56,8 +56,12 @@ See `CODEBASE_INDEX.md`.
 flutter pub get
 flutter run
 flutter analyze
+flutter test
 flutter build apk --release
+flutter build appbundle --release
 ```
+
+Release signing and store deployment: see [RELEASE.md](RELEASE.md).
 
 ## Git
 

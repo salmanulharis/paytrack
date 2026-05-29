@@ -1,7 +1,8 @@
 import 'dart:convert';
 
 import 'package:encrypt/encrypt.dart' as enc;
-import 'package:flutter/foundation.dart';
+
+import '../utils/app_log.dart';
 
 import '../constants/app_constants.dart';
 import '../../data/datasources/local/hive_storage.dart';
@@ -184,7 +185,7 @@ class BackupService {
         mode: mode,
       );
     } catch (e) {
-      debugPrint('Import failed: $e');
+      appLog('Import failed', e);
       if (e is BackupValidationException) rethrow;
       throw BackupValidationException('Could not parse backup: $e');
     }
