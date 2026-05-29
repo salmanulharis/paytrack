@@ -23,8 +23,6 @@ Pure Dart models with no framework dependencies:
 
 - **HiveStorage** — Single source of truth for JSON-serialized entities
 - **ExpenseRepository** / **TagRepository** — CRUD + search queries
-- **SampleDataSeeder** — Demo data on first launch
-
 ### Core Services (`lib/core/services/`)
 
 | Service | Responsibility |

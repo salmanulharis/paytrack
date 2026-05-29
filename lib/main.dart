@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'core/providers/app_providers.dart';
 import 'data/datasources/local/hive_storage.dart';
-import 'data/sample/sample_data_seeder.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,7 +17,6 @@ Future<void> main() async {
 
   final prefs = await SharedPreferences.getInstance();
   await HiveStorage.instance.init();
-  await SampleDataSeeder.seedIfEmpty(HiveStorage.instance, prefs);
 
   runApp(
     ProviderScope(

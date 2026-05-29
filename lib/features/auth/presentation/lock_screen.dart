@@ -60,66 +60,81 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              const Spacer(),
-              Icon(
-                Icons.lock_outline_rounded,
-                size: 72,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(height: 24),
-              Text('PayTrack', style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 8),
-              Text('Enter PIN to unlock', style: Theme.of(context).textTheme.bodyMedium),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(_error!, style: const TextStyle(color: Colors.red)),
-              ],
-              const SizedBox(height: 48),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(4, (i) {
-                  return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 8),
-                    width: 14,
-                    height: 14,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: i < _pin.length
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.grey.withValues(alpha: 0.3),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxHeight < 640;
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight - 48),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.lock_outline_rounded,
+                      size: compact ? 56 : 72,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
-                  );
-                }),
+                    SizedBox(height: compact ? 16 : 24),
+                    Text(
+                      'PayTrack',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Enter PIN to unlock',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(_error!, style: const TextStyle(color: Colors.red)),
+                    ],
+                    SizedBox(height: compact ? 28 : 48),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(4, (i) {
+                        return Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: i < _pin.length
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.grey.withValues(alpha: 0.3),
+                          ),
+                        );
+                      }),
+                    ),
+                    SizedBox(height: compact ? 24 : 40),
+                    IconButton(
+                      iconSize: compact ? 40 : 48,
+                      onPressed: _tryBiometric,
+                      icon: const Icon(Icons.fingerprint_rounded),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildPad(compact: compact),
+                  ],
+                ),
               ),
-              const Spacer(),
-              IconButton(
-                iconSize: 48,
-                onPressed: _tryBiometric,
-                icon: const Icon(Icons.fingerprint_rounded),
-              ),
-              const SizedBox(height: 16),
-              _buildPad(),
-              const SizedBox(height: 32),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildPad() {
+  Widget _buildPad({bool compact = false}) {
     const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'];
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        childAspectRatio: 1.5,
+        childAspectRatio: compact ? 1.55 : 1.5,
       ),
       itemCount: keys.length,
       itemBuilder: (context, i) {

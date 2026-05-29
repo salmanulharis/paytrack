@@ -18,6 +18,7 @@ import '../services/upi_parser_service.dart';
 import '../services/upi_payment_service.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/entities/expense_tag.dart';
+import '../../domain/entities/floating_action_position.dart';
 import '../../domain/entities/note_field_mode.dart';
 import '../../domain/entities/pending_payment.dart';
 import '../../domain/entities/user_preferences.dart';
@@ -140,7 +141,7 @@ class ExpensesNotifier extends StateNotifier<List<Expense>> {
   }
 
   Future<void> update(Expense expense) async {
-    await _repo.save(expense);
+    await _repo.save(expense, incrementTags: false);
     await load();
   }
 }
@@ -226,6 +227,11 @@ class UserPreferencesNotifier extends StateNotifier<UserPreferences> {
           _prefs.getBool(AppConstants.prefCompensationEnabled) ?? false,
       encryptedBackup:
           _prefs.getBool(AppConstants.prefEncryptedBackup) ?? false,
+      showFloatingQuickActions:
+          _prefs.getBool(AppConstants.prefShowFloatingQuickActions) ?? true,
+      floatingActionPosition: FloatingActionPosition.fromString(
+        _prefs.getString(AppConstants.prefFloatingActionPosition),
+      ),
     );
   }
 
@@ -266,6 +272,14 @@ class UserPreferencesNotifier extends StateNotifier<UserPreferences> {
     await _prefs.setBool(
       AppConstants.prefEncryptedBackup,
       prefs.encryptedBackup,
+    );
+    await _prefs.setBool(
+      AppConstants.prefShowFloatingQuickActions,
+      prefs.showFloatingQuickActions,
+    );
+    await _prefs.setString(
+      AppConstants.prefFloatingActionPosition,
+      prefs.floatingActionPosition.name,
     );
   }
 

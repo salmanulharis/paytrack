@@ -12,7 +12,12 @@ import '../../../domain/entities/expense_status.dart';
 import '../../../domain/entities/note_field_mode.dart';
 
 class ManualExpenseScreen extends ConsumerStatefulWidget {
-  const ManualExpenseScreen({super.key});
+  const ManualExpenseScreen({super.key, this.expenseId});
+
+  /// When set, the form loads and updates an existing expense.
+  final String? expenseId;
+
+  bool get isEditing => expenseId != null;
 
   @override
   ConsumerState<ManualExpenseScreen> createState() => _ManualExpenseScreenState();
@@ -26,6 +31,69 @@ class _ManualExpenseScreenState extends ConsumerState<ManualExpenseScreen> {
   DateTime _date = DateTime.now();
   String? _receiptPath;
   String _paymentMethod = 'Cash';
+  Expense? _existing;
+  bool _loaded = false;
+
+  static const _paymentMethods = [
+    'Cash',
+    'Card',
+    'UPI',
+    'Google Pay',
+    'PhonePe',
+    'Paytm',
+    'BHIM',
+    'Bank Transfer',
+    'Other',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isEditing) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadExpense());
+    } else {
+      _loaded = true;
+    }
+  }
+
+  void _loadExpense() {
+    final expense = ref
+        .read(expensesProvider)
+        .where((e) => e.id == widget.expenseId)
+        .firstOrNull;
+    if (expense == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Expense not found')),
+        );
+        context.pop();
+      }
+      return;
+    }
+
+    _existing = expense;
+    _amountController.text = expense.amount == expense.amount.roundToDouble()
+        ? expense.amount.toStringAsFixed(0)
+        : expense.amount.toStringAsFixed(2);
+    _merchantController.text = expense.merchantName ?? '';
+    _notesController.text = expense.notes ?? '';
+    _selectedTags.addAll(expense.tagIds);
+    _date = expense.createdAt;
+    _receiptPath = expense.receiptPath;
+    _paymentMethod = expense.paymentAppName ??
+        expense.paymentSource ??
+        (expense.isManual ? 'Cash' : 'UPI');
+    setState(() => _loaded = true);
+  }
+
+  List<String> get _paymentOptions {
+    final options = List<String>.from(_paymentMethods);
+    if (!_paymentMethods.contains(_paymentMethod) &&
+        _paymentMethod.isNotEmpty) {
+      options.insert(0, _paymentMethod);
+    }
+    return options;
+  }
 
   @override
   void dispose() {
@@ -39,6 +107,43 @@ class _ManualExpenseScreenState extends ConsumerState<ManualExpenseScreen> {
     final picker = ImagePicker();
     final image = await picker.pickImage(source: ImageSource.gallery);
     if (image != null) setState(() => _receiptPath = image.path);
+  }
+
+  Future<void> _pickDate() async {
+    final d = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+    );
+    if (d != null) {
+      setState(() {
+        _date = DateTime(d.year, d.month, d.day, _date.hour, _date.minute);
+      });
+    }
+  }
+
+  Future<void> _pickTime() async {
+    final t = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_date),
+    );
+    if (t != null) {
+      setState(() {
+        _date = DateTime(
+          _date.year,
+          _date.month,
+          _date.day,
+          t.hour,
+          t.minute,
+        );
+      });
+    }
+  }
+
+  bool _isUpiAppName(String method) {
+    const apps = ['Google Pay', 'PhonePe', 'Paytm', 'BHIM'];
+    return apps.contains(method);
   }
 
   Future<void> _save() async {
@@ -64,24 +169,44 @@ class _ManualExpenseScreenState extends ConsumerState<ManualExpenseScreen> {
       return;
     }
 
-    final expense = Expense(
-      id: const Uuid().v4(),
-      amount: amount,
-      tagIds: _selectedTags.toList(),
-      createdAt: _date,
-      notes: userPrefs.noteFieldMode == NoteFieldMode.disabled ||
-              _notesController.text.trim().isEmpty
-          ? null
-          : _notesController.text.trim(),
-      merchantName:
-          _merchantController.text.isEmpty ? null : _merchantController.text,
-      status: ExpenseStatus.success,
-      receiptPath: _receiptPath,
-      paymentSource: _paymentMethod,
-      isManual: true,
-    );
+    final notes = userPrefs.noteFieldMode == NoteFieldMode.disabled ||
+            _notesController.text.trim().isEmpty
+        ? null
+        : _notesController.text.trim();
+    final merchant = _merchantController.text.trim().isEmpty
+        ? null
+        : _merchantController.text.trim();
+    final isUpiApp = _isUpiAppName(_paymentMethod);
 
-    await ref.read(expensesProvider.notifier).add(expense);
+    if (widget.isEditing && _existing != null) {
+      final updated = _existing!.copyWith(
+        amount: amount,
+        tagIds: _selectedTags.toList(),
+        createdAt: _date,
+        notes: notes,
+        merchantName: merchant,
+        receiptPath: _receiptPath,
+        paymentSource: isUpiApp ? 'UPI' : _paymentMethod,
+        paymentAppName: isUpiApp ? _paymentMethod : null,
+        paymentAppId: isUpiApp ? _existing!.paymentAppId : null,
+      );
+      await ref.read(expensesProvider.notifier).update(updated);
+    } else {
+      final expense = Expense(
+        id: const Uuid().v4(),
+        amount: amount,
+        tagIds: _selectedTags.toList(),
+        createdAt: _date,
+        notes: notes,
+        merchantName: merchant,
+        status: ExpenseStatus.success,
+        receiptPath: _receiptPath,
+        paymentSource: isUpiApp ? 'UPI' : _paymentMethod,
+        paymentAppName: isUpiApp ? _paymentMethod : null,
+        isManual: true,
+      );
+      await ref.read(expensesProvider.notifier).add(expense);
+    }
 
     final limitService = ref.read(spendingLimitServiceProvider);
     await limitService.recordDailyExcessIfNeeded(
@@ -95,12 +220,18 @@ class _ManualExpenseScreenState extends ConsumerState<ManualExpenseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_loaded) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final tags = ref.watch(tagsProvider);
     final userPrefs = ref.watch(userPreferencesProvider);
 
     return FloatingFormScaffold(
-      title: 'Add expense',
-      actionLabel: 'Save expense',
+      title: widget.isEditing ? 'Edit expense' : 'Add expense',
+      actionLabel: widget.isEditing ? 'Save changes' : 'Save expense',
       actionIcon: Icons.check_rounded,
       onAction: _save,
       body: Column(
@@ -117,39 +248,36 @@ class _ManualExpenseScreenState extends ConsumerState<ManualExpenseScreen> {
           const SizedBox(height: 16),
           TextField(
             controller: _merchantController,
-            decoration: const InputDecoration(labelText: 'Merchant / Description'),
+            decoration: const InputDecoration(
+              labelText: 'Merchant / Description',
+            ),
           ),
           const SizedBox(height: 16),
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Date'),
             subtitle: Text(
-              '${_date.day}/${_date.month}/${_date.year} ${_date.hour}:${_date.minute.toString().padLeft(2, '0')}',
+              '${_date.day}/${_date.month}/${_date.year}',
             ),
             trailing: const Icon(Icons.calendar_today_rounded),
-            onTap: () async {
-              final d = await showDatePicker(
-                context: context,
-                initialDate: _date,
-                firstDate: DateTime(2020),
-                lastDate: DateTime.now(),
-              );
-              if (d != null) {
-                setState(() => _date = DateTime(
-                      d.year,
-                      d.month,
-                      d.day,
-                      _date.hour,
-                      _date.minute,
-                    ));
-              }
-            },
+            onTap: _pickDate,
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Time'),
+            subtitle: Text(
+              TimeOfDay.fromDateTime(_date).format(context),
+            ),
+            trailing: const Icon(Icons.access_time_rounded),
+            onTap: _pickTime,
           ),
           const SizedBox(height: 8),
           DropdownMenu<String>(
-            initialSelection: _paymentMethod,
+            initialSelection: _paymentOptions.contains(_paymentMethod)
+                ? _paymentMethod
+                : _paymentOptions.first,
             label: const Text('Payment method'),
-            dropdownMenuEntries: ['Cash', 'Card', 'UPI', 'Bank Transfer', 'Other']
+            dropdownMenuEntries: _paymentOptions
                 .map((m) => DropdownMenuEntry(value: m, label: m))
                 .toList(),
             onSelected: (v) => setState(() => _paymentMethod = v ?? 'Cash'),
@@ -201,5 +329,13 @@ class _ManualExpenseScreenState extends ConsumerState<ManualExpenseScreen> {
         ],
       ),
     );
+  }
+}
+
+extension _FirstOrNull<T> on Iterable<T> {
+  T? get firstOrNull {
+    final it = iterator;
+    if (it.moveNext()) return it.current;
+    return null;
   }
 }

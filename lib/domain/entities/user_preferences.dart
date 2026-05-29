@@ -1,3 +1,4 @@
+import 'floating_action_position.dart';
 import 'note_field_mode.dart';
 
 class UserPreferences {
@@ -11,6 +12,8 @@ class UserPreferences {
     this.limitAlertsEnabled = true,
     this.compensationEnabled = false,
     this.encryptedBackup = false,
+    this.showFloatingQuickActions = true,
+    this.floatingActionPosition = FloatingActionPosition.bottomRight,
   });
 
   final NoteFieldMode noteFieldMode;
@@ -22,6 +25,8 @@ class UserPreferences {
   final bool limitAlertsEnabled;
   final bool compensationEnabled;
   final bool encryptedBackup;
+  final bool showFloatingQuickActions;
+  final FloatingActionPosition floatingActionPosition;
 
   UserPreferences copyWith({
     NoteFieldMode? noteFieldMode,
@@ -33,6 +38,8 @@ class UserPreferences {
     bool? limitAlertsEnabled,
     bool? compensationEnabled,
     bool? encryptedBackup,
+    bool? showFloatingQuickActions,
+    FloatingActionPosition? floatingActionPosition,
   }) {
     return UserPreferences(
       noteFieldMode: noteFieldMode ?? this.noteFieldMode,
@@ -45,6 +52,10 @@ class UserPreferences {
       limitAlertsEnabled: limitAlertsEnabled ?? this.limitAlertsEnabled,
       compensationEnabled: compensationEnabled ?? this.compensationEnabled,
       encryptedBackup: encryptedBackup ?? this.encryptedBackup,
+      showFloatingQuickActions:
+          showFloatingQuickActions ?? this.showFloatingQuickActions,
+      floatingActionPosition:
+          floatingActionPosition ?? this.floatingActionPosition,
     );
   }
 }

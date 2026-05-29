@@ -8,6 +8,7 @@ import '../../features/auth/presentation/pin_setup_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/expenses/presentation/expense_detail_screen.dart';
 import '../../features/expenses/presentation/manual_expense_screen.dart';
+import '../../features/expenses/presentation/monthly_expenses_screen.dart';
 import '../../features/expenses/presentation/search_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/payment/presentation/expense_metadata_screen.dart';
@@ -78,6 +79,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/manual-expense',
             builder: (_, __) => const ManualExpenseScreen(),
+          ),
+          GoRoute(
+            path: '/edit-expense/:id',
+            builder: (context, state) {
+              return ManualExpenseScreen(
+                expenseId: state.pathParameters['id'],
+              );
+            },
+          ),
+          GoRoute(
+            path: '/expenses',
+            builder: (_, __) => const MonthlyExpensesScreen(),
           ),
           GoRoute(
             path: '/analytics',

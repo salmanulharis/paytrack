@@ -11,9 +11,11 @@ class ExpenseRepository {
 
   Future<Expense?> getById(String id) => _storage.getExpense(id);
 
-  Future<void> save(Expense expense) async {
+  Future<void> save(Expense expense, {bool incrementTags = true}) async {
     await _storage.saveExpense(expense);
-    await _storage.incrementTagUsage(expense.tagIds);
+    if (incrementTags) {
+      await _storage.incrementTagUsage(expense.tagIds);
+    }
   }
 
   Future<void> delete(String id) => _storage.deleteExpense(id);

@@ -21,18 +21,22 @@ Flutter 3.11+ · Riverpod · GoRouter · Hive · Material 3 · `mobile_scanner` 
 | UPI parse / pay | `upi_parser_service.dart`, `payment_flow_service.dart`, `MainActivity.kt` |
 | Limits | `spending_limit_service.dart`, `limit_progress_card.dart` |
 | Backup | `backup_service.dart`, `backup_screen.dart` |
-| Dashboard actions | `paytrack_bottom_nav.dart` (`PayTrackBottomChrome`) |
+| Home primary actions | `home_primary_actions.dart` |
+| Tab navigation | `paytrack_bottom_nav.dart`, `main_tab_bottom_chrome.dart` |
+| Category drill-down | `category_expenses_sheet.dart` |
+| Expenses history | `monthly_expenses_screen.dart` (route `/expenses`) |
+| Edit expense | `/edit-expense/:id` → `manual_expense_screen.dart` |
 | Payment / manual forms | `floating_form_scaffold.dart`, `expense_metadata_screen.dart` |
 | Theme | `lib/core/theme/app_theme.dart` |
 
 ## UI chrome (dashboard)
 
 ```
-[ Add expense | Scan QR ]   ← PayTrackDualActionBar (horizontal, equal width)
-[ Home        | Analytics ] ← NavigationBar
+[ Add Expense | Scan QR ] ← HomePrimaryActions (Home only, below spending card)
+[ Home | Monthly | Analytics ] ← NavigationBar
 ```
 
-Do **not** use vertical FAB stacks or center-docked FABs on the dashboard.
+Primary actions live **only** on Home. Do **not** use vertical FAB stacks or duplicate action bars on other tabs.
 
 ## Critical flows
 

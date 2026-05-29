@@ -21,6 +21,9 @@ class GradientButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final shadowAlpha = isDark ? 0.4 : 0.28;
+
     return SizedBox(
       width: width ?? double.infinity,
       height: 56,
@@ -32,9 +35,9 @@ class GradientButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.4),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
+              color: AppColors.primary.withValues(alpha: shadowAlpha),
+              blurRadius: isDark ? 16 : 14,
+              offset: Offset(0, isDark ? 6 : 5),
             ),
           ],
         ),

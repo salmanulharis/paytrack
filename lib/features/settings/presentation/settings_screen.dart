@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/providers/app_providers.dart';
+import 'widgets/quick_action_settings_section.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../domain/entities/note_field_mode.dart';
 import '../../../domain/entities/upi_app_info.dart';
@@ -29,6 +30,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
+          const QuickActionSettingsSection(),
           const _SectionHeader('Appearance'),
           ListTile(
             title: const Text('Theme'),

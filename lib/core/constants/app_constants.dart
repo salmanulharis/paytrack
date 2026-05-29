@@ -34,6 +34,8 @@ class AppConstants {
   static const String prefCompensationPrefix = 'compensation_excess_';
   static const String prefEncryptedBackup = 'encrypted_backup';
   static const String prefLockGraceMinutes = 'lock_grace_minutes';
+  static const String prefShowFloatingQuickActions = 'show_floating_quick_actions';
+  static const String prefFloatingActionPosition = 'floating_action_position';
 
   static const int backupFormatVersion = 1;
   static const double limitWarningThreshold = 0.85;

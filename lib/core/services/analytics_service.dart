@@ -18,6 +18,21 @@ class SpendingInsight {
 
 enum InsightType { increase, decrease, warning, info }
 
+enum CategoryExpenseSort {
+  newest,
+  oldest,
+  highestAmount,
+  lowestAmount,
+}
+
+/// Inclusive period bounds for a calendar month (end is now if current month).
+class MonthPeriodBounds {
+  const MonthPeriodBounds({required this.start, required this.end});
+
+  final DateTime start;
+  final DateTime end;
+}
+
 class CategorySpending {
   const CategorySpending({
     required this.tagId,
@@ -60,8 +75,115 @@ class AnalyticsService {
 
   double monthTotal(List<Expense> expenses) {
     final now = DateTime.now();
-    final start = DateTime(now.year, now.month, 1);
-    return totalForPeriod(expenses, start, now);
+    return monthTotalFor(expenses, now.year, now.month);
+  }
+
+  double monthTotalFor(List<Expense> expenses, int year, int month) {
+    final bounds = monthPeriodBounds(year, month);
+    return totalForPeriod(expenses, bounds.start, bounds.end);
+  }
+
+  MonthPeriodBounds monthPeriodBounds(int year, int month) {
+    final start = DateTime(year, month, 1);
+    final now = DateTime.now();
+    if (year == now.year && month == now.month) {
+      return MonthPeriodBounds(start: start, end: now);
+    }
+    final end = DateTime(year, month + 1, 0, 23, 59, 59, 999);
+    return MonthPeriodBounds(start: start, end: end);
+  }
+
+  List<Expense> expensesForCategory(
+    List<Expense> expenses,
+    String tagId,
+    DateTime start,
+    DateTime end,
+  ) {
+    return expenses
+        .where(
+          (e) =>
+              e.status == ExpenseStatus.success &&
+              e.tagIds.contains(tagId) &&
+              !e.createdAt.isBefore(start) &&
+              !e.createdAt.isAfter(end),
+        )
+        .toList();
+  }
+
+  double categoryTotal(List<Expense> categoryExpenses) {
+    return categoryExpenses.fold(0.0, (sum, e) => sum + e.amount);
+  }
+
+  List<Expense> sortCategoryExpenses(
+    List<Expense> expenses,
+    CategoryExpenseSort sort,
+  ) {
+    final sorted = List<Expense>.from(expenses);
+    switch (sort) {
+      case CategoryExpenseSort.newest:
+        sorted.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      case CategoryExpenseSort.oldest:
+        sorted.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      case CategoryExpenseSort.highestAmount:
+        sorted.sort((a, b) => b.amount.compareTo(a.amount));
+      case CategoryExpenseSort.lowestAmount:
+        sorted.sort((a, b) => a.amount.compareTo(b.amount));
+    }
+    return sorted;
+  }
+
+  double dayTotal(List<Expense> expenses, DateTime day) {
+    final start = DateTime(day.year, day.month, day.day);
+    final end = start
+        .add(const Duration(days: 1))
+        .subtract(const Duration(milliseconds: 1));
+    return totalForPeriod(expenses, start, end);
+  }
+
+  List<Expense> successExpensesInMonth(
+    List<Expense> expenses,
+    int year,
+    int month,
+  ) {
+    return expenses
+        .where(
+          (e) =>
+              e.status == ExpenseStatus.success &&
+              e.createdAt.year == year &&
+              e.createdAt.month == month,
+        )
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  /// Expenses grouped by calendar day, newest days first.
+  Map<DateTime, List<Expense>> expensesGroupedByDay(
+    List<Expense> expenses,
+    int year,
+    int month,
+  ) {
+    final monthExpenses = successExpensesInMonth(expenses, year, month);
+    final grouped = <DateTime, List<Expense>>{};
+    for (final expense in monthExpenses) {
+      final day = DateTime(
+        expense.createdAt.year,
+        expense.createdAt.month,
+        expense.createdAt.day,
+      );
+      grouped.putIfAbsent(day, () => []).add(expense);
+    }
+    for (final list in grouped.values) {
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
+    return grouped;
+  }
+
+  bool hasAnySuccessExpense(List<Expense> expenses) {
+    return expenses.any((e) => e.status == ExpenseStatus.success);
+  }
+
+  bool hasChartData(List<Map<String, dynamic>> chartData) {
+    return chartData.any((d) => (d['amount'] as double) > 0);
   }
 
   List<Map<String, dynamic>> dailyChartData(
@@ -177,13 +299,6 @@ class AnalyticsService {
       insights.add(SpendingInsight(
         message: 'You have $pending pending transaction${pending > 1 ? 's' : ''} to confirm',
         type: InsightType.warning,
-      ));
-    }
-
-    if (insights.isEmpty) {
-      insights.add(SpendingInsight(
-        message: 'Track every UPI payment to unlock personalized insights',
-        type: InsightType.info,
       ));
     }
 

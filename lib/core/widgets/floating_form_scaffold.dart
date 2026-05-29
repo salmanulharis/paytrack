@@ -84,11 +84,11 @@ class _FloatingCtaBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scheme = Theme.of(context).colorScheme;
+    final bg = Theme.of(context).scaffoldBackgroundColor;
 
     return Material(
-      elevation: 16,
-      shadowColor: Colors.black26,
+      elevation: 0,
       color: Colors.transparent,
       child: Container(
         padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + bottomInset),
@@ -96,20 +96,13 @@ class _FloatingCtaBar extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: isDark
-                ? [
-                    Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0),
-                    Theme.of(context).scaffoldBackgroundColor,
-                  ]
-                : [
-                    Colors.white.withValues(alpha: 0),
-                    Colors.white,
-                  ],
+            colors: [
+              bg.withValues(alpha: 0),
+              scheme.surface,
+            ],
           ),
           border: Border(
-            top: BorderSide(
-              color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
-            ),
+            top: BorderSide(color: scheme.outlineVariant),
           ),
         ),
         child: Column(

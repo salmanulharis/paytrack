@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/expense_actions.dart';
 import '../../../core/utils/tag_icon_helper.dart';
+import '../../../core/widgets/gradient_button.dart';
 
 class ExpenseDetailScreen extends ConsumerWidget {
   const ExpenseDetailScreen({super.key, required this.id});
@@ -24,30 +27,30 @@ class ExpenseDetailScreen extends ConsumerWidget {
       );
     }
 
-    final expenseTags = tags.where((t) => expense.tagIds.contains(t.id)).toList();
-    final dateFormat = DateFormat('EEEE, d MMM yyyy · HH:mm');
+    final expenseTags =
+        tags.where((t) => expense.tagIds.contains(t.id)).toList();
+    final dateFormat = DateFormat('EEEE, d MMM yyyy');
+    final timeFormat = DateFormat('h:mm a');
 
     return Scaffold(
       appBar: AppBar(
         actions: [
           IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit',
+            onPressed: () => ExpenseActions.navigateToEdit(context, id),
+          ),
+          IconButton(
             icon: const Icon(Icons.delete_outline_rounded),
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Delete expense?'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                    TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
-                  ],
-                ),
-              );
-              if (confirm == true) {
-                await ref.read(expensesProvider.notifier).remove(id);
-                if (context.mounted) Navigator.pop(context);
-              }
-            },
+            tooltip: 'Delete',
+            onPressed: () => ExpenseActions.confirmDelete(
+              context,
+              ref,
+              expense,
+              onDeleted: () {
+                if (context.mounted) context.pop();
+              },
+            ),
           ),
         ],
       ),
@@ -63,15 +66,18 @@ class ExpenseDetailScreen extends ConsumerWidget {
             expense.merchantName ?? 'Expense',
             style: Theme.of(context).textTheme.titleLarge,
           ),
-          Text(dateFormat.format(expense.createdAt)),
+          Text(
+            '${dateFormat.format(expense.createdAt)} · ${timeFormat.format(expense.createdAt)}',
+          ),
           const SizedBox(height: 24),
           _DetailRow('Status', expense.status.label),
           if (expense.upiId != null) _DetailRow('UPI ID', expense.upiId!),
           if (expense.paymentAppName != null)
             _DetailRow('Payment app', expense.paymentAppName!),
           if (expense.paymentSource != null)
-            _DetailRow('Payment source', expense.paymentSource!),
-          if (expense.notes != null) _DetailRow('Notes', expense.notes!),
+            _DetailRow('Payment method', expense.paymentSource!),
+          if (expense.notes != null && expense.notes!.isNotEmpty)
+            _DetailRow('Notes', expense.notes!),
           const SizedBox(height: 16),
           Text('Categories', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
@@ -83,6 +89,32 @@ class ExpenseDetailScreen extends ConsumerWidget {
                 label: Text(tag.name),
               );
             }).toList(),
+          ),
+          const SizedBox(height: 32),
+          GradientButton(
+            label: 'Edit expense',
+            icon: Icons.edit_rounded,
+            onPressed: () => ExpenseActions.navigateToEdit(context, id),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => ExpenseActions.confirmDelete(
+              context,
+              ref,
+              expense,
+              onDeleted: () {
+                if (context.mounted) context.pop();
+              },
+            ),
+            icon: const Icon(Icons.delete_outline_rounded),
+            label: const Text('Delete expense'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.error.withValues(alpha: 0.5),
+              ),
+              minimumSize: const Size(double.infinity, 52),
+            ),
           ),
         ],
       ),

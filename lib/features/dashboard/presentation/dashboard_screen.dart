@@ -7,25 +7,20 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/services/analytics_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/paytrack_theme_extension.dart';
 import '../../../core/utils/currency_formatter.dart';
-import '../../../core/widgets/paytrack_bottom_nav.dart';
-import '../../../core/widgets/expense_list_tile.dart';
+import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/glass_card.dart';
+import '../../../core/widgets/home_primary_actions.dart';
 import '../../../core/widgets/limit_progress_card.dart';
-import '../../../domain/entities/expense_status.dart';
+import '../../../core/widgets/main_tab_bottom_chrome.dart';
+import '../../../core/widgets/quick_action_fab_host.dart';
 
-class DashboardScreen extends ConsumerStatefulWidget {
+class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   @override
-  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  int _navIndex = 0;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final expenses = ref.watch(expensesProvider);
     final tags = ref.watch(tagsProvider);
     final analytics = ref.watch(analyticsServiceProvider);
@@ -44,13 +39,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final week = analytics.weekTotal(expenses);
     final month = analytics.monthTotal(expenses);
     final chartData = analytics.dailyChartData(expenses);
+    final showChart = analytics.hasChartData(chartData);
     final insights = analytics.generateInsights(expenses, tags);
-    final recent = expenses
-        .where((e) => e.status == ExpenseStatus.success)
-        .take(5)
-        .toList();
+    final hasExpenses = analytics.hasAnySuccessExpense(expenses);
 
-    return Scaffold(
+    return QuickActionFabHost(
+      child: Scaffold(
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -91,54 +85,28 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                 child: _HeroCard(today: today, week: week, month: month),
               ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0),
             ),
-            if (userPrefs.dailyLimitEnabled && userPrefs.limitAlertsEnabled)
-              SliverToBoxAdapter(child: LimitProgressCard(status: dailyLimit)),
-            if (userPrefs.monthlyLimitEnabled && userPrefs.limitAlertsEnabled)
-              SliverToBoxAdapter(child: LimitProgressCard(status: monthlyLimit)),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: SizedBox(
-                  height: 120,
-                  child: GlassCard(
-                    padding: const EdgeInsets.all(16),
-                    child: LineChart(
-                      LineChartData(
-                        gridData: const FlGridData(show: false),
-                        titlesData: const FlTitlesData(
-                          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        ),
-                        borderData: FlBorderData(show: false),
-                        lineBarsData: [
-                          LineChartBarData(
-                            spots: chartData.asMap().entries.map((e) {
-                              return FlSpot(
-                                e.key.toDouble(),
-                                (e.value['amount'] as double),
-                              );
-                            }).toList(),
-                            isCurved: true,
-                            color: AppColors.primary,
-                            barWidth: 3,
-                            dotData: const FlDotData(show: false),
-                            belowBarData: BarAreaData(
-                              show: true,
-                              color: AppColors.primary.withValues(alpha: 0.15),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                child: HomePrimaryActions(
+                  onAddExpense: () => context.push('/manual-expense'),
+                  onScan: () => context.push('/scanner'),
                 ),
               ),
             ),
+            if (userPrefs.dailyLimitEnabled && userPrefs.limitAlertsEnabled)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: LimitProgressCard(status: dailyLimit),
+                ),
+              ),
+            if (userPrefs.monthlyLimitEnabled && userPrefs.limitAlertsEnabled)
+              SliverToBoxAdapter(child: LimitProgressCard(status: monthlyLimit)),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
@@ -147,91 +115,127 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   children: [
                     Text('Insights', style: Theme.of(context).textTheme.titleLarge),
                     TextButton(
-                      onPressed: () => context.push('/analytics'),
+                      onPressed: () => context.go('/analytics'),
                       child: const Text('See all'),
                     ),
                   ],
                 ),
               ),
             ),
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, i) {
-                  final insight = insights[i];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                    child: GlassCard(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _insightIcon(insight.type),
-                            color: AppColors.primary,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              insight.message,
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-                childCount: insights.length.clamp(0, 3),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-                child: Text('Recent', style: Theme.of(context).textTheme.titleLarge),
-              ),
-            ),
-            if (recent.isEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(40),
-                  child: Center(
-                    child: Text(
-                      'Scan a QR to track your first expense',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ),
+            if (!hasExpenses)
+              const SliverToBoxAdapter(
+                child: EmptyState(
+                  message: 'No expenses recorded yet',
+                  subtitle: 'Add an expense or scan a QR to start tracking.',
+                  icon: Icons.insights_outlined,
+                  compact: true,
+                ),
+              )
+            else if (insights.isEmpty)
+              const SliverToBoxAdapter(
+                child: EmptyState(
+                  message: 'Keep tracking to unlock insights',
+                  subtitle: 'Insights appear once you have more spending history.',
+                  icon: Icons.lightbulb_outline_rounded,
+                  compact: true,
                 ),
               )
             else
               SliverList(
                 delegate: SliverChildBuilderDelegate(
-                  (context, i) => Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: ExpenseListTile(
-                      expense: recent[i],
-                      tags: tags,
-                      index: i,
-                      onTap: () => context.push('/expense/${recent[i].id}'),
-                    ),
-                  ),
-                  childCount: recent.length,
+                  (context, i) {
+                    final insight = insights[i];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 4,
+                      ),
+                      child: GlassCard(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _insightIcon(insight.type),
+                              color: AppColors.primary,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                insight.message,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                  childCount: insights.length.clamp(0, 3),
                 ),
               ),
-            // Clearance for dual-action bar + bottom nav
+            if (showChart)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '7-day spending',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 120,
+                        child: GlassCard(
+                          padding: const EdgeInsets.all(16),
+                          child: LineChart(
+                            LineChartData(
+                              gridData: const FlGridData(show: false),
+                              titlesData: const FlTitlesData(
+                                leftTitles: AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false),
+                                ),
+                                topTitles: AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false),
+                                ),
+                                rightTitles: AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false),
+                                ),
+                              ),
+                              borderData: FlBorderData(show: false),
+                              lineBarsData: [
+                                LineChartBarData(
+                                  spots: chartData.asMap().entries.map((e) {
+                                    return FlSpot(
+                                      e.key.toDouble(),
+                                      e.value['amount'] as double,
+                                    );
+                                  }).toList(),
+                                  isCurved: true,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  barWidth: 3,
+                                  dotData: const FlDotData(show: false),
+                                  belowBarData: BarAreaData(
+                                    show: true,
+                                    color: PayTrackThemeExtension.of(context)
+                                        .chartAreaFill,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             const SliverToBoxAdapter(child: SizedBox(height: 16)),
           ],
         ),
       ),
-      bottomNavigationBar: PayTrackBottomChrome(
-        selectedIndex: _navIndex,
-        onAddExpense: () => context.push('/manual-expense'),
-        onScan: () => context.push('/scanner'),
-        onDestinationSelected: (i) {
-          if (i == 1) {
-            context.push('/analytics');
-            return;
-          }
-          setState(() => _navIndex = 0);
-        },
+      bottomNavigationBar: const MainTabBottomChrome(),
       ),
     );
   }
@@ -266,6 +270,8 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final heroShadow = PayTrackThemeExtension.of(context).heroShadow;
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -277,7 +283,7 @@ class _HeroCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.35),
+            color: heroShadow,
             blurRadius: 24,
             offset: const Offset(0, 12),
           ),
@@ -287,7 +293,7 @@ class _HeroCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Spent today',
+            "Today's spending",
             style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 4),

@@ -110,6 +110,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     tags: tags,
                     index: i,
                     onTap: () => context.push('/expense/${results[i].id}'),
+                    onDeleted: () => setState(() {}),
                   ),
                 );
               },
